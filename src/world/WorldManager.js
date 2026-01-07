@@ -98,11 +98,6 @@ export class WorldManager {
    * Add decorations to central hub
    */
   decorateCentralHub() {
-    // Central fountain/monument
-    const monument = GeometryUtils.createCylinder(3, 2, 8, 0xC0C0C0, 8)
-    monument.position.set(0, 4, 0)
-    this.scene.add(monument)
-
     // Trees around perimeter
     for (let i = 0; i < 8; i++) {
       const angle = (i / 8) * Math.PI * 2
@@ -178,43 +173,81 @@ export class WorldManager {
     // Calculate bridge position and dimensions
     const centerRadius = Config.centralHub.radius
     const distanceToIsland = targetPos.length()
-    const bridgeLength = distanceToIsland - centerRadius - (Config.islands.baseSize / 2) + 10
+    const bridgeLength = distanceToIsland - centerRadius - (Config.islands.baseSize / 2) + 15
 
-    // Bridge geometry
-    const geometry = new THREE.BoxGeometry(
-      Config.bridges.width,
+    // Main bridge deck geometry (wider and more visible)
+    const deckGeometry = new THREE.BoxGeometry(
+      Config.bridges.width * 1.5,  // Wider for easier walking
       Config.bridges.height,
       bridgeLength
     )
-    const material = new THREE.MeshStandardMaterial({
+    const deckMaterial = new THREE.MeshStandardMaterial({
       color: Config.bridges.color,
       flatShading: true
     })
 
-    const bridge = new THREE.Mesh(geometry, material)
+    const bridgeDeck = new THREE.Mesh(deckGeometry, deckMaterial)
 
-    // Position bridge between hub and island
+    // Position bridge between hub and island, raised above water
     const bridgeDistance = centerRadius + (bridgeLength / 2)
-    bridge.position.set(
+    const bridgeHeight = 1.5  // Raised above island surface
+    bridgeDeck.position.set(
       Math.cos(angle) * bridgeDistance,
-      0,
+      bridgeHeight,
       Math.sin(angle) * bridgeDistance
     )
-    bridge.rotation.y = angle
+    bridgeDeck.rotation.y = angle
 
-    bridge.castShadow = true
-    bridge.receiveShadow = true
+    bridgeDeck.castShadow = true
+    bridgeDeck.receiveShadow = true
 
-    this.scene.add(bridge)
-    this.bridges.push(bridge)
+    this.scene.add(bridgeDeck)
+    this.bridges.push(bridgeDeck)
 
     // Register for collision
     if (this.collisionManager) {
-      this.collisionManager.registerCollisionMesh(bridge)
+      this.collisionManager.registerCollisionMesh(bridgeDeck)
+    }
+
+    // Add decorative planks on the bridge
+    const plankCount = Math.floor(bridgeLength / 2)
+    for (let i = 0; i < plankCount; i++) {
+      const plankZ = (i / plankCount) * bridgeLength - bridgeLength / 2
+      const plank = GeometryUtils.createBox(
+        Config.bridges.width * 1.3,
+        0.1,
+        0.3,
+        0x654321
+      )
+      plank.position.copy(bridgeDeck.position)
+      plank.position.y += Config.bridges.height / 2 + 0.05
+      plank.position.x += Math.cos(angle) * plankZ
+      plank.position.z += Math.sin(angle) * plankZ
+      plank.rotation.y = angle
+      this.scene.add(plank)
+    }
+
+    // Add support pillars
+    const pillarCount = Math.floor(bridgeLength / 10)
+    for (let i = 1; i < pillarCount; i++) {
+      const pillarZ = (i / pillarCount) * bridgeLength - bridgeLength / 2
+      const pillarHeight = bridgeHeight + 2
+
+      const pillar = GeometryUtils.createCylinder(0.3, 0.4, pillarHeight, 0x654321, 8)
+      pillar.position.set(
+        Math.cos(angle) * (bridgeDistance + pillarZ * Math.sin(angle)),
+        pillarHeight / 2 - 2,
+        Math.sin(angle) * (bridgeDistance + pillarZ * Math.cos(angle))
+      )
+      this.scene.add(pillar)
+
+      if (this.collisionManager) {
+        this.collisionManager.registerCollisionMesh(pillar)
+      }
     }
 
     // Add railings
-    this.addBridgeRailings(bridge, angle, bridgeLength)
+    this.addBridgeRailings(bridgeDeck, angle, bridgeLength, bridgeHeight)
   }
 
   /**
@@ -222,10 +255,12 @@ export class WorldManager {
    * @param {THREE.Mesh} bridge
    * @param {number} angle
    * @param {number} length
+   * @param {number} bridgeHeight
    */
-  addBridgeRailings(bridge, angle, length) {
-    const railingHeight = 1.5
-    const railingWidth = 0.2
+  addBridgeRailings(bridge, angle, length, bridgeHeight) {
+    const railingHeight = 1.2
+    const railingWidth = 0.15
+    const bridgeWidth = Config.bridges.width * 1.5
 
     // Left railing
     const leftRailing = GeometryUtils.createBox(
@@ -235,9 +270,9 @@ export class WorldManager {
       0x8B4513
     )
     leftRailing.position.copy(bridge.position)
-    leftRailing.position.x += Math.cos(angle + Math.PI / 2) * (Config.bridges.width / 2)
-    leftRailing.position.z += Math.sin(angle + Math.PI / 2) * (Config.bridges.width / 2)
-    leftRailing.position.y = railingHeight / 2 + Config.bridges.height / 2
+    leftRailing.position.x += Math.cos(angle + Math.PI / 2) * (bridgeWidth / 2)
+    leftRailing.position.z += Math.sin(angle + Math.PI / 2) * (bridgeWidth / 2)
+    leftRailing.position.y = bridgeHeight + railingHeight / 2 + Config.bridges.height / 2
     leftRailing.rotation.y = angle
     this.scene.add(leftRailing)
 
@@ -249,11 +284,24 @@ export class WorldManager {
       0x8B4513
     )
     rightRailing.position.copy(bridge.position)
-    rightRailing.position.x += Math.cos(angle - Math.PI / 2) * (Config.bridges.width / 2)
-    rightRailing.position.z += Math.sin(angle - Math.PI / 2) * (Config.bridges.width / 2)
-    rightRailing.position.y = railingHeight / 2 + Config.bridges.height / 2
+    rightRailing.position.x += Math.cos(angle - Math.PI / 2) * (bridgeWidth / 2)
+    rightRailing.position.z += Math.sin(angle - Math.PI / 2) * (bridgeWidth / 2)
+    rightRailing.position.y = bridgeHeight + railingHeight / 2 + Config.bridges.height / 2
     rightRailing.rotation.y = angle
     this.scene.add(rightRailing)
+
+    // Add crossbeams for visual detail
+    const beamCount = Math.floor(length / 5)
+    for (let i = 0; i < beamCount; i++) {
+      const beamZ = (i / beamCount) * length - length / 2
+      const beam = GeometryUtils.createBox(bridgeWidth, 0.1, 0.15, 0x654321)
+      beam.position.copy(bridge.position)
+      beam.position.y = bridgeHeight + railingHeight * 0.3
+      beam.position.x += Math.cos(angle) * beamZ
+      beam.position.z += Math.sin(angle) * beamZ
+      beam.rotation.y = angle
+      this.scene.add(beam)
+    }
   }
 
   /**

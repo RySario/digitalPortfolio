@@ -17,82 +17,166 @@ export class BasketballIsland extends Island {
   }
 
   createDecorations() {
-    // Basketball hoop (main)
-    const hoop = this.createBasketballHoop()
-    this.addDecoration(hoop, 6, 0, 0)
+    // === BASKETBALL HOOPS ===
+    const hoop1 = this.createBasketballHoop()
+    this.addDecoration(hoop1, 8, 0, 0)
 
-    // Second hoop on opposite side
     const hoop2 = this.createBasketballHoop()
     hoop2.rotation.y = Math.PI
-    this.addDecoration(hoop2, -6, 0, 0)
+    this.addDecoration(hoop2, -8, 0, 0)
 
-    // Court lines (painted on ground) - full court layout
-    // Center line
-    const centerLine = GeometryUtils.createBox(0.2, 0.05, 16, ColorPalettes.common.white)
-    this.addDecoration(centerLine, 0, 1.1, 0)
+    // === COURT SURFACE (painted area) ===
+    const courtSurface = GeometryUtils.createBox(16, 0.08, 14, ColorPalettes.basketball.primary)
+    this.addDecoration(courtSurface, 0, 1.08, 0)
 
-    // Sidelines
-    const sideline1 = GeometryUtils.createBox(20, 0.05, 0.2, ColorPalettes.common.white)
-    this.addDecoration(sideline1, 0, 1.1, 8)
-
-    const sideline2 = GeometryUtils.createBox(20, 0.05, 0.2, ColorPalettes.common.white)
-    this.addDecoration(sideline2, 0, 1.1, -8)
-
-    // Three-point arc (simplified as half circle lines)
-    for (let i = 0; i < 10; i++) {
-      const angle = (i / 9) * Math.PI - Math.PI / 2
-      const x1 = Math.cos(angle) * 5 + 6
-      const z1 = Math.sin(angle) * 5
-      const arcSegment1 = GeometryUtils.createBox(0.2, 0.05, 0.5, ColorPalettes.common.white)
-      arcSegment1.rotation.y = angle
-      this.addDecoration(arcSegment1, x1, 1.1, z1)
-
-      const x2 = Math.cos(angle) * 5 - 6
-      const z2 = Math.sin(angle) * 5
-      const arcSegment2 = GeometryUtils.createBox(0.2, 0.05, 0.5, ColorPalettes.common.white)
-      arcSegment2.rotation.y = angle + Math.PI
-      this.addDecoration(arcSegment2, x2, 1.1, z2)
+    // === COURT LINES ===
+    // Center circle
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2
+      const x = Math.cos(angle) * 2
+      const z = Math.sin(angle) * 2
+      const segment = GeometryUtils.createBox(0.15, 0.01, 0.4, ColorPalettes.common.white)
+      segment.rotation.y = angle + Math.PI / 2
+      this.addDecoration(segment, x, 1.16, z)
     }
 
-    // Benches
-    const bench1 = this.createBench()
-    this.addDecoration(bench1, -2, 1, 9)
+    // Center line
+    const centerLine = GeometryUtils.createBox(0.15, 0.01, 14, ColorPalettes.common.white)
+    this.addDecoration(centerLine, 0, 1.16, 0)
 
-    const bench2 = this.createBench()
-    this.addDecoration(bench2, 2, 1, 9)
+    // Sidelines
+    const sideline1 = GeometryUtils.createBox(16, 0.01, 0.15, ColorPalettes.common.white)
+    this.addDecoration(sideline1, 0, 1.16, 7)
 
-    // Trees around perimeter (MORE!)
-    const tree1 = GeometryUtils.createLowPolyTree(ColorPalettes.basketball.tree, 1.5)
-    this.addDecoration(tree1, 9, 1, 7)
+    const sideline2 = GeometryUtils.createBox(16, 0.01, 0.15, ColorPalettes.common.white)
+    this.addDecoration(sideline2, 0, 1.16, -7)
 
-    const tree2 = GeometryUtils.createLowPolyTree(ColorPalettes.basketball.tree, 1.3)
-    this.addDecoration(tree2, -9, 1, 7)
+    // Baselines
+    const baseline1 = GeometryUtils.createBox(0.15, 0.01, 14, ColorPalettes.common.white)
+    this.addDecoration(baseline1, 8, 1.16, 0)
 
-    const tree3 = GeometryUtils.createLowPolyTree(ColorPalettes.basketball.tree, 1.4)
-    this.addDecoration(tree3, 9, 1, -7)
+    const baseline2 = GeometryUtils.createBox(0.15, 0.01, 14, ColorPalettes.common.white)
+    this.addDecoration(baseline2, -8, 1.16, 0)
 
-    const tree4 = GeometryUtils.createLowPolyTree(ColorPalettes.basketball.tree, 1.2)
-    this.addDecoration(tree4, -9, 1, -7)
+    // Three-point arcs (both sides)
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 11) * Math.PI - Math.PI / 2
+      const x1 = Math.cos(angle) * 5.5 + 8
+      const z1 = Math.sin(angle) * 5.5
+      const arc1 = GeometryUtils.createBox(0.15, 0.01, 0.5, ColorPalettes.common.white)
+      arc1.rotation.y = angle
+      this.addDecoration(arc1, x1, 1.16, z1)
 
-    const tree5 = GeometryUtils.createLowPolyTree(ColorPalettes.basketball.tree, 1.1)
-    this.addDecoration(tree5, 0, 1, 10)
+      const x2 = Math.cos(angle) * 5.5 - 8
+      const z2 = Math.sin(angle) * 5.5
+      const arc2 = GeometryUtils.createBox(0.15, 0.01, 0.5, ColorPalettes.common.white)
+      arc2.rotation.y = angle + Math.PI
+      this.addDecoration(arc2, x2, 1.16, z2)
+    }
 
-    const tree6 = GeometryUtils.createLowPolyTree(ColorPalettes.basketball.tree, 1.3)
-    this.addDecoration(tree6, 0, 1, -10)
+    // Free throw lanes (the "key")
+    const key1 = GeometryUtils.createBox(4, 0.01, 0.15, ColorPalettes.common.white)
+    this.addDecoration(key1, 6, 1.16, 4)
 
-    // Bushes
-    const bush1 = GeometryUtils.createLowPolyBush(ColorPalettes.basketball.tree, 0.8)
-    this.addDecoration(bush1, 8, 1, 0)
+    const key2 = GeometryUtils.createBox(4, 0.01, 0.15, ColorPalettes.common.white)
+    this.addDecoration(key2, 6, 1.16, -4)
 
-    const bush2 = GeometryUtils.createLowPolyBush(ColorPalettes.basketball.tree, 0.7)
-    this.addDecoration(bush2, -8, 1, 3)
+    const key3 = GeometryUtils.createBox(4, 0.01, 0.15, ColorPalettes.common.white)
+    this.addDecoration(key3, -6, 1.16, 4)
 
-    // Rocks
-    const rock1 = GeometryUtils.createLowPolyRock(0.6, ColorPalettes.basketball.secondary)
-    this.addDecoration(rock1, 7, 1, 5)
+    const key4 = GeometryUtils.createBox(4, 0.01, 0.15, ColorPalettes.common.white)
+    this.addDecoration(key4, -6, 1.16, -4)
 
-    const rock2 = GeometryUtils.createLowPolyRock(0.5, ColorPalettes.basketball.secondary)
-    this.addDecoration(rock2, -7, 1, -4)
+    // === SPECTATOR STANDS ===
+    const stands1 = GeometryUtils.createStands(4, 10, ColorPalettes.basketball.secondary)
+    this.addDecoration(stands1, 0, 1, 10)
+
+    const stands2 = GeometryUtils.createStands(4, 10, ColorPalettes.basketball.secondary)
+    stands2.rotation.y = Math.PI
+    this.addDecoration(stands2, 0, 1, -10)
+
+    // === SCOREBOARD ===
+    const scoreboard = this.createScoreboard()
+    this.addDecoration(scoreboard, -11, 5, 0)
+
+    // === PLAYER BENCHES (team areas) ===
+    const teamBench1 = GeometryUtils.createBench(3, ColorPalettes.basketball.primary)
+    this.addDecoration(teamBench1, -3, 1, 8.5)
+
+    const teamBench2 = GeometryUtils.createBench(3, ColorPalettes.basketball.primary)
+    this.addDecoration(teamBench2, 3, 1, 8.5)
+
+    // Water coolers
+    const cooler1 = this.createWaterCooler()
+    this.addDecoration(cooler1, -5, 1, 8.5)
+
+    const cooler2 = this.createWaterCooler()
+    this.addDecoration(cooler2, 5, 1, 8.5)
+
+    // === LIGHTING (light poles) ===
+    const light1 = this.createLightPole()
+    this.addDecoration(light1, 12, 0, 10)
+
+    const light2 = this.createLightPole()
+    this.addDecoration(light2, 12, 0, -10)
+
+    const light3 = this.createLightPole()
+    this.addDecoration(light3, -12, 0, 10)
+
+    const light4 = this.createLightPole()
+    this.addDecoration(light4, -12, 0, -10)
+
+    // === LANDSCAPING ===
+    // Trees around perimeter
+    const treePositions = [
+      [14, 1, 8], [14, 1, 0], [14, 1, -8],
+      [-14, 1, 8], [-14, 1, 0], [-14, 1, -8],
+      [10, 1, 12], [0, 1, 13], [-10, 1, 12],
+      [10, 1, -12], [0, 1, -13], [-10, 1, -12]
+    ]
+
+    treePositions.forEach((pos, i) => {
+      const tree = GeometryUtils.createLowPolyTree(
+        ColorPalettes.basketball.tree,
+        1 + Math.random() * 0.4
+      )
+      this.addDecoration(tree, ...pos)
+    })
+
+    // Bushes and grass
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2
+      const distance = 13 + Math.random() * 2
+      const bush = GeometryUtils.createLowPolyBush(0x228B22, 0.7 + Math.random() * 0.3)
+      this.addDecoration(
+        bush,
+        Math.cos(angle) * distance,
+        1,
+        Math.sin(angle) * distance
+      )
+    }
+
+    // Decorative rocks
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + 0.5
+      const distance = 12
+      const rock = GeometryUtils.createLowPolyRock(0.5 + Math.random() * 0.4, 0x808080)
+      this.addDecoration(
+        rock,
+        Math.cos(angle) * distance,
+        1,
+        Math.sin(angle) * distance
+      )
+    }
+
+    // Fencing around court
+    const fence1 = GeometryUtils.createFence(20, 2, 0x8B4513)
+    fence1.rotation.y = Math.PI / 2
+    this.addDecoration(fence1, 10, 1, 0)
+
+    const fence2 = GeometryUtils.createFence(20, 2, 0x8B4513)
+    fence2.rotation.y = Math.PI / 2
+    this.addDecoration(fence2, -10, 1, 0)
   }
 
   createBench() {
@@ -145,8 +229,96 @@ export class BasketballIsland extends Island {
     return group
   }
 
+  createScoreboard() {
+    const group = new THREE.Group()
+
+    // Main board
+    const board = GeometryUtils.createBox(4, 2, 0.2, 0x1a1a1a)
+    group.add(board)
+
+    // Display panels (simplified)
+    const homePanel = GeometryUtils.createBox(1.5, 1, 0.1, ColorPalettes.basketball.primary)
+    homePanel.position.set(-1, 0, 0.15)
+    group.add(homePanel)
+
+    const awayPanel = GeometryUtils.createBox(1.5, 1, 0.1, ColorPalettes.basketball.secondary)
+    awayPanel.position.set(1, 0, 0.15)
+    group.add(awayPanel)
+
+    // Supporting pole
+    const pole = GeometryUtils.createCylinder(0.15, 0.15, 5, 0x505050, 8)
+    pole.position.y = -3.5
+    group.add(pole)
+
+    return group
+  }
+
+  createWaterCooler() {
+    const group = new THREE.Group()
+
+    // Base/tank
+    const tank = GeometryUtils.createCylinder(0.3, 0.3, 0.8, 0x4169E1, 8)
+    tank.position.y = 0.5
+    group.add(tank)
+
+    // Lid
+    const lid = GeometryUtils.createCylinder(0.32, 0.28, 0.15, 0x1E90FF, 8)
+    lid.position.y = 0.975
+    group.add(lid)
+
+    // Stand
+    const stand = GeometryUtils.createBox(0.5, 0.1, 0.5, 0x2F4F4F)
+    stand.position.y = 0.05
+    group.add(stand)
+
+    return group
+  }
+
+  createLightPole() {
+    const group = new THREE.Group()
+
+    // Pole
+    const pole = GeometryUtils.createCylinder(0.15, 0.2, 8, 0x404040, 8)
+    pole.position.y = 5
+    group.add(pole)
+
+    // Light fixtures (4 lights on top)
+    const lightPositions = [
+      [0.5, 9, 0.5],
+      [-0.5, 9, 0.5],
+      [0.5, 9, -0.5],
+      [-0.5, 9, -0.5]
+    ]
+
+    lightPositions.forEach(pos => {
+      const light = GeometryUtils.createBox(0.4, 0.3, 0.4, 0xFFFFAA)
+      light.position.set(...pos)
+      group.add(light)
+    })
+
+    // Cross beam
+    const beam = GeometryUtils.createBox(1.5, 0.1, 1.5, 0x404040)
+    beam.position.y = 8.8
+    group.add(beam)
+
+    return group
+  }
+
   async createMediaFrames() {
-    // Media frames will be added later when MediaFrame class is created
+    // Media frames for basketball action shots
+    const frame1 = GeometryUtils.createMediaFrame(4, 3, 0x2C3E50)
+    frame1.rotation.y = -Math.PI / 2
+    this.addDecoration(frame1, 12, 4, 5)
+
+    const frame2 = GeometryUtils.createMediaFrame(4, 3, 0x2C3E50)
+    frame2.rotation.y = -Math.PI / 2
+    this.addDecoration(frame2, 12, 4, -5)
+
+    const frame3 = GeometryUtils.createMediaFrame(5, 3, 0x2C3E50)
+    frame3.rotation.y = Math.PI
+    this.addDecoration(frame3, 0, 4, -12)
+
+    // TODO: Load basketball action photos/videos
   }
 
   /**
