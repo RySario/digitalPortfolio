@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive 3D portfolio showcasing hobbies and professional journey">
+  <title>3D Portfolio - Explore My World</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    #loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease;
+    }
+
+    #loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-text {
+      color: white;
+      font-size: 24px;
+      margin-bottom: 20px;
+      font-weight: 300;
+    }
+
+    .loading-bar-container {
+      width: 300px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .loading-bar {
+      height: 100%;
+      background: white;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    #hud {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-size: 14px;
+      z-index: 100;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      user-select: none;
+    }
+
+    .controls-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 14px;
+      text-align: center;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 12px 24px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+    }
+
+    .controls-hint p {
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="loading-text">Loading Your 3D World...</div>
+    <div class="loading-bar-container">
+      <div class="loading-bar" id="loading-bar"></div>
+    </div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <div id="hud">
+    <div id="location">Welcome</div>
+  </div>
+
+  <div class="controls-hint">
+    <p><strong>Left Click + Drag</strong> to rotate camera</p>
+    <p><strong>Right Click + Drag</strong> to pan | <strong>Scroll</strong> to zoom</p>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
