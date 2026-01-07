@@ -1,7 +1,7 @@
 /**
  * Third Person Controls
  * Controls player character with WASD and camera with mouse
- * Camera follows behind player
+ * Camera orbits around player with smooth following
  */
 
 import * as THREE from 'three'
@@ -20,24 +20,27 @@ export class ThirdPersonControls {
     this.moveRight = false
     this.isRunning = false
 
-    // Camera rotation
-    this.cameraRotationY = 0  // Horizontal rotation
-    this.cameraRotationX = 0.3  // Vertical tilt (looking slightly down)
+    // Camera orbit angles (spherical coordinates)
+    this.cameraYaw = 0       // Horizontal rotation around player
+    this.cameraPitch = 0.3   // Vertical angle (0 = level, positive = looking down)
 
-    // Player rotation
+    // Player rotation - character faces movement direction
     this.targetPlayerRotation = 0
     this.currentPlayerRotation = 0
 
     // Movement parameters
     this.speed = Config.controls.maxSpeed
     this.runSpeed = Config.controls.runSpeed
-    this.rotationSpeed = Config.controls.rotationSpeed
-    this.mouseSensitivity = Config.controls.mouseSensitivity
+    this.rotationSpeed = 8  // Faster rotation for responsive feel
+    this.mouseSensitivity = 0.003
 
     // Camera parameters
     this.cameraDistance = Config.camera.thirdPerson.distance
     this.cameraHeight = Config.camera.thirdPerson.height
-    this.cameraSmoothness = Config.camera.thirdPerson.smoothness
+    this.cameraSmoothness = 0.1  // Camera lerp speed
+
+    // Target camera position for smoothing
+    this.targetCameraPos = new THREE.Vector3()
 
     // Pointer lock state
     this.isLocked = false
@@ -169,12 +172,12 @@ export class ThirdPersonControls {
     const movementX = event.movementX || 0
     const movementY = event.movementY || 0
 
-    // Update camera rotation
-    this.cameraRotationY -= movementX * this.mouseSensitivity
-    this.cameraRotationX -= movementY * this.mouseSensitivity
+    // Update camera orbit angles
+    this.cameraYaw -= movementX * this.mouseSensitivity
+    this.cameraPitch += movementY * this.mouseSensitivity
 
-    // Limit vertical rotation
-    this.cameraRotationX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, this.cameraRotationX))
+    // Limit vertical angle (don't go below ground or too high)
+    this.cameraPitch = Math.max(0.1, Math.min(1.2, this.cameraPitch))
   }
 
   onInteract() {
@@ -208,42 +211,55 @@ export class ThirdPersonControls {
    * @returns {THREE.Vector3} Proposed player position
    */
   update(delta) {
-    // Calculate movement direction based on camera rotation
+    // Calculate movement direction based on camera yaw (relative to camera view)
     const moveDirection = new THREE.Vector3()
 
-    // Get forward and right vectors relative to camera
+    // Forward is the direction the camera is facing (horizontally)
     const forward = new THREE.Vector3(
-      Math.sin(this.cameraRotationY),
+      -Math.sin(this.cameraYaw),
       0,
-      Math.cos(this.cameraRotationY)
-    )
-    const right = new THREE.Vector3(
-      Math.cos(this.cameraRotationY),
-      0,
-      -Math.sin(this.cameraRotationY)
+      -Math.cos(this.cameraYaw)
     )
 
+    // Right is perpendicular to forward
+    const right = new THREE.Vector3(
+      -Math.cos(this.cameraYaw),
+      0,
+      Math.sin(this.cameraYaw)
+    )
+
+    // Build movement vector from input
     if (this.moveForward) moveDirection.add(forward)
     if (this.moveBackward) moveDirection.sub(forward)
     if (this.moveRight) moveDirection.add(right)
     if (this.moveLeft) moveDirection.sub(right)
 
-    // Normalize and apply speed
-    if (moveDirection.length() > 0) {
+    // Apply movement
+    if (moveDirection.lengthSq() > 0) {
       moveDirection.normalize()
 
+      // Set player rotation to face movement direction
+      this.targetPlayerRotation = Math.atan2(moveDirection.x, moveDirection.z)
+
+      // Apply speed
       const currentSpeed = this.isRunning ? this.runSpeed : this.speed
       moveDirection.multiplyScalar(currentSpeed * delta)
 
-      // Update player rotation to face movement direction
-      this.targetPlayerRotation = Math.atan2(moveDirection.x, moveDirection.z)
+      // Store velocity for animation
+      this.player.velocity.x = moveDirection.x
+      this.player.velocity.z = moveDirection.z
+    } else {
+      // Not moving - clear horizontal velocity
+      this.player.velocity.x = 0
+      this.player.velocity.z = 0
     }
 
-    // Smoothly rotate player
+    // Smoothly rotate player to face movement direction
     let rotationDiff = this.targetPlayerRotation - this.currentPlayerRotation
-    // Handle angle wrapping
-    if (rotationDiff > Math.PI) rotationDiff -= Math.PI * 2
-    if (rotationDiff < -Math.PI) rotationDiff += Math.PI * 2
+
+    // Handle angle wrapping (-PI to PI)
+    while (rotationDiff > Math.PI) rotationDiff -= Math.PI * 2
+    while (rotationDiff < -Math.PI) rotationDiff += Math.PI * 2
 
     this.currentPlayerRotation += rotationDiff * this.rotationSpeed * delta
     this.player.setRotation(this.currentPlayerRotation)
@@ -252,48 +268,47 @@ export class ThirdPersonControls {
     const currentPos = this.player.getPosition()
     const proposedPos = currentPos.clone().add(moveDirection)
 
-    // Update camera to follow player
+    // Apply gravity to Y if not grounded
+    if (!this.player.isGrounded) {
+      proposedPos.y += this.player.velocity.y * delta
+    }
+
+    // Update camera
     this.updateCamera()
 
     return proposedPos
   }
 
   /**
-   * Update camera position to follow player
+   * Update camera position to orbit around player
    */
   updateCamera() {
     const playerPos = this.player.getPosition()
 
-    // Calculate desired camera position
-    const cameraOffset = new THREE.Vector3(
-      Math.sin(this.cameraRotationY) * this.cameraDistance,
-      this.cameraHeight,
-      Math.cos(this.cameraRotationY) * this.cameraDistance
+    // Look at point is player's chest area
+    const lookAtHeight = Config.player.height * 0.65
+    const lookAtPoint = new THREE.Vector3(
+      playerPos.x,
+      playerPos.y + lookAtHeight,
+      playerPos.z
     )
 
-    const targetCameraPos = playerPos.clone().sub(cameraOffset)
+    // Calculate camera position using spherical coordinates
+    // cameraPitch controls the vertical angle, cameraYaw controls horizontal
+    const horizontalDistance = this.cameraDistance * Math.cos(this.cameraPitch)
+    const verticalOffset = this.cameraDistance * Math.sin(this.cameraPitch) + this.cameraHeight
 
-    // Smooth camera movement
-    this.camera.position.lerp(targetCameraPos, this.cameraSmoothness)
+    this.targetCameraPos.set(
+      playerPos.x + Math.sin(this.cameraYaw) * horizontalDistance,
+      playerPos.y + lookAtHeight + verticalOffset,
+      playerPos.z + Math.cos(this.cameraYaw) * horizontalDistance
+    )
 
-    // Look at point slightly ahead and above player
-    const lookAtPoint = playerPos.clone()
-    lookAtPoint.y += Config.player.height * 0.7
-    lookAtPoint.add(new THREE.Vector3(
-      Math.sin(this.cameraRotationY) * Config.camera.thirdPerson.lookAhead,
-      0,
-      Math.cos(this.cameraRotationY) * Config.camera.thirdPerson.lookAhead
-    ))
+    // Smoothly move camera to target position
+    this.camera.position.lerp(this.targetCameraPos, this.cameraSmoothness)
 
+    // Always look at the player
     this.camera.lookAt(lookAtPoint)
-
-    // Apply vertical tilt
-    const tiltAxis = new THREE.Vector3(
-      Math.cos(this.cameraRotationY),
-      0,
-      -Math.sin(this.cameraRotationY)
-    )
-    this.camera.rotateOnAxis(tiltAxis, this.cameraRotationX)
   }
 
   /**
