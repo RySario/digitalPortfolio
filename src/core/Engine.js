@@ -6,6 +6,8 @@ import { WorldManager } from '../world/WorldManager.js'
 import { CloudSystem } from '../world/CloudSystem.js'
 import { BoidSystem } from '../world/BoidSystem.js'
 import { CollisionManager } from '../controls/CollisionManager.js'
+import { Player } from '../player/Player.js'
+import { ThirdPersonControls } from '../controls/ThirdPersonControls.js'
 
 class Engine {
   constructor() {
@@ -22,9 +24,11 @@ class Engine {
     this.cloudSystem = null
     this.collisionManager = null
     this.birdSystem = null
+    this.player = null
 
     // Controls
     this.controls = null
+    this.thirdPersonControls = null
 
     // Don't call init here - it's async now
   }
@@ -65,17 +69,21 @@ class Engine {
     this.birdSystem = new BoidSystem(this.scene)
     console.log('Bird flock created')
 
-    // Setup orbit controls
-    this.setupOrbitControls()
-    console.log('Orbit controls initialized')
+    // Create player
+    try {
+      this.player = new Player(this.scene)
+      console.log('Player created at:', this.player.getPosition())
 
-    // ADD TEST CUBE to verify rendering
-    const testGeometry = new THREE.BoxGeometry(10, 10, 10)
-    const testMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 })
-    const testCube = new THREE.Mesh(testGeometry, testMaterial)
-    testCube.position.set(0, 5, 0)
-    this.scene.add(testCube)
-    console.log('Test cube added at:', testCube.position)
+      // Setup third-person controls
+      this.setupThirdPersonControls()
+      console.log('Third-person controls initialized')
+      console.log('Controls: WASD to move, Mouse to look, Shift to run, Space to jump')
+    } catch (error) {
+      console.error('Error creating player:', error)
+      // Fall back to orbit controls if player creation fails
+      this.setupOrbitControls()
+      console.log('Fell back to orbit controls')
+    }
 
     // Handle window resize
     window.addEventListener('resize', this.onWindowResize.bind(this))
@@ -162,7 +170,38 @@ class Engine {
     this.scene.add(hemisphereLight)
   }
 
+  setupThirdPersonControls() {
+    this.thirdPersonControls = new ThirdPersonControls(
+      this.player,
+      this.camera,
+      this.renderer.domElement
+    )
+
+    // Position camera behind and above player initially
+    const playerPos = this.player.getPosition()
+    const distance = Config.camera.thirdPerson.distance
+    const height = Config.camera.thirdPerson.height
+
+    // Camera starts behind the player
+    this.camera.position.set(
+      playerPos.x,
+      playerPos.y + Config.player.height * 0.65 + height + distance * 0.3,
+      playerPos.z + distance
+    )
+
+    // Look at player
+    const lookAtPoint = new THREE.Vector3(
+      playerPos.x,
+      playerPos.y + Config.player.height * 0.65,
+      playerPos.z
+    )
+    this.camera.lookAt(lookAtPoint)
+
+    console.log('Third-person controls initialized')
+  }
+
   setupOrbitControls() {
+    // Keep this for debugging/testing if needed
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = Config.orbitControls.enableDamping
     this.controls.dampingFactor = Config.orbitControls.dampingFactor
@@ -193,8 +232,45 @@ class Engine {
 
     const delta = Math.min(this.clock.getDelta(), 0.1)
 
-    // Update orbit controls
-    if (this.controls) {
+    // Update third-person controls and player
+    if (this.thirdPersonControls && this.player && this.collisionManager) {
+      try {
+        // Get current position before movement
+        const currentPosition = this.player.getPosition()
+
+        // Get proposed position from controls
+        const proposedPosition = this.thirdPersonControls.update(delta)
+
+        // Handle collision and movement
+        if (proposedPosition) {
+          // Check collision with ground and environment
+          const collisionResult = this.collisionManager.checkCollision(
+            currentPosition,
+            proposedPosition
+          )
+
+          // Update player position based on collision result
+          this.player.setPosition(collisionResult.position)
+
+          // Update player grounded state
+          this.player.isGrounded = collisionResult.grounded
+
+          // Reset jumping if grounded
+          if (collisionResult.grounded) {
+            this.player.isJumping = false
+            this.player.velocity.y = 0
+          }
+        }
+
+        // Update player physics and animation
+        this.player.update(delta)
+      } catch (error) {
+        console.error('Error in player update:', error)
+      }
+    }
+
+    // Update orbit controls if using them
+    if (this.controls && !this.thirdPersonControls) {
       this.controls.update()
     }
 

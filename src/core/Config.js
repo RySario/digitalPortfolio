@@ -4,16 +4,30 @@
  */
 
 export const Config = {
-  // Camera settings (orbit)
+  // Camera settings
   camera: {
     fov: 60,
     near: 0.1,
     far: 2000,
     startPosition: { x: 0, y: 80, z: 120 },
-    lookAt: { x: 0, y: 0, z: 0 }
+    lookAt: { x: 0, y: 0, z: 0 },
+    // Third-person camera settings
+    thirdPerson: {
+      distance: 8,      // Distance from player
+      height: 1.5,      // Additional height offset
+      smoothness: 0.1   // Camera lerp speed (lower = smoother)
+    }
   },
 
-  // Orbit controls
+  // Player controls
+  controls: {
+    maxSpeed: 10,
+    runSpeed: 16,
+    rotationSpeed: 8,
+    mouseSensitivity: 0.002
+  },
+
+  // Orbit controls (for debugging/free camera mode)
   orbitControls: {
     enableDamping: true,
     dampingFactor: 0.05,
@@ -28,7 +42,7 @@ export const Config = {
     count: 6,
     baseSize: 50,      // Much bigger islands
     baseHeight: 3,
-    segments: 12,      // More detail
+    segments: 32,      // High detail for smooth islands
     spacing: 60        // Distance between island centers
   },
 
@@ -82,9 +96,9 @@ export const Config = {
 
   // Collision detection (needed by CollisionManager)
   collision: {
-    playerRadius: 1.5,
-    groundOffset: 1.5,
-    groundCheckDistance: 10
+    playerRadius: 0.5,
+    groundOffset: 0,      // Player feet at ground level
+    groundCheckDistance: 50
   },
 
   // Location detection
@@ -98,6 +112,12 @@ export const Config = {
     defaultWidth: 4,
     defaultHeight: 3,
     slideshowInterval: 5000  // 5 seconds
+  },
+
+  // Interaction settings
+  interaction: {
+    pickupDistance: 3,
+    throwForce: 15
   },
 
   // Scene
@@ -124,6 +144,18 @@ export const Config = {
       groundColor: 0xB8A99F,
       intensity: 0.5
     }
+  },
+
+  // Player/Avatar settings
+  player: {
+    height: 2.5,
+    radius: 0.6,
+    color: 0x4A90E2,  // Nice blue color
+    startPosition: { x: 0, y: 3, z: 0 },  // Spawn on central hub
+    speed: 10,
+    jumpForce: 12,
+    gravity: 30,
+    rotationSpeed: 3
   }
 }
 
