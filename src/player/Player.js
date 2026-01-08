@@ -72,54 +72,76 @@ export class Player {
     this.bodyGroup.add(body)
 
     // --- SIMPLE HEAD (integrated with body, just a face area) ---
+    // Face embedded more into the pill body for a cohesive look
     this.headGroup = new THREE.Group()
-    this.headGroup.position.set(0, scale * 0.45, scale * 0.1)
+    this.headGroup.position.set(0, scale * 0.25, scale * 0.05)
     this.bodyGroup.add(this.headGroup)
 
-    // Face area (slightly lighter/skin colored circle)
-    const faceGeom = new THREE.SphereGeometry(scale * 0.32, 24, 24)
+    // Face area (slightly lighter/skin colored circle) - more embedded into body
+    const faceGeom = new THREE.SphereGeometry(scale * 0.28, 24, 24)
     const faceMat = new THREE.MeshStandardMaterial({
       color: colors.skin,
       roughness: 0.7
     })
     const face = new THREE.Mesh(faceGeom, faceMat)
-    face.position.set(0, 0, scale * 0.15)
-    face.scale.set(0.9, 1, 0.4)
+    face.position.set(0, 0, scale * 0.22)
+    face.scale.set(0.85, 0.85, 0.35)
     this.headGroup.add(face)
 
-    // --- SIMPLE DOT EYES ---
-    const eyeSpacing = scale * 0.12
+    // --- LARGE MICKEY MOUSE STYLE EYES ---
+    const eyeSpacing = scale * 0.12  // Slightly wider spacing for larger eyes
+    const eyeY = scale * 0.04  // Unified Y position for centered look
 
-    // Left eye (simple black dot)
-    const eyeGeom = new THREE.SphereGeometry(scale * 0.06, 16, 16)
+    // Large eye whites (sclera) - Mickey Mouse style big oval eyes
+    // Protruding forward from the face for a friendly, expressive look
+    const eyeWhiteGeom = new THREE.SphereGeometry(scale * 0.14, 20, 20)
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({
+      color: colors.eyeWhite,
+      roughness: 0.2
+    })
+
+    // Left eye white - large oval, protruding forward for friendly look
+    const leftEyeWhite = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat)
+    leftEyeWhite.position.set(-eyeSpacing, eyeY, scale * 0.32)  // Pushed forward to protrude
+    leftEyeWhite.scale.set(0.9, 1.15, 0.6)  // Tall oval, more depth to stick out
+    this.headGroup.add(leftEyeWhite)
+
+    // Right eye white
+    const rightEyeWhite = new THREE.Mesh(eyeWhiteGeom.clone(), eyeWhiteMat)
+    rightEyeWhite.position.set(eyeSpacing, eyeY, scale * 0.32)  // Pushed forward to protrude
+    rightEyeWhite.scale.set(0.9, 1.15, 0.6)
+    this.headGroup.add(rightEyeWhite)
+
+    // Pupils (black dots) - centered on the protruding eye whites
+    const eyeGeom = new THREE.SphereGeometry(scale * 0.048, 16, 16)
     const eyeMat = new THREE.MeshStandardMaterial({ color: colors.eyePupil })
     const leftEye = new THREE.Mesh(eyeGeom, eyeMat)
-    leftEye.position.set(-eyeSpacing, scale * 0.05, scale * 0.32)
+    leftEye.position.set(-eyeSpacing, eyeY, scale * 0.39)  // On front surface of eye white
     this.headGroup.add(leftEye)
     this.leftPupil = leftEye
 
-    // Right eye
+    // Right pupil
     const rightEye = new THREE.Mesh(eyeGeom.clone(), eyeMat)
-    rightEye.position.set(eyeSpacing, scale * 0.05, scale * 0.32)
+    rightEye.position.set(eyeSpacing, eyeY, scale * 0.39)  // On front surface of eye white
     this.headGroup.add(rightEye)
     this.rightPupil = rightEye
 
-    // Eye whites (small white dots for shine)
-    const shineGeom = new THREE.SphereGeometry(scale * 0.02, 8, 8)
+    // Eye shine (white highlight dots on pupils for life) - upper right of pupil
+    const shineGeom = new THREE.SphereGeometry(scale * 0.016, 8, 8)
     const shineMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF })
     const leftShine = new THREE.Mesh(shineGeom, shineMat)
-    leftShine.position.set(-eyeSpacing + scale * 0.02, scale * 0.07, scale * 0.36)
+    leftShine.position.set(-eyeSpacing + scale * 0.015, eyeY + scale * 0.015, scale * 0.41)
     this.headGroup.add(leftShine)
 
     const rightShine = new THREE.Mesh(shineGeom.clone(), shineMat)
-    rightShine.position.set(eyeSpacing + scale * 0.02, scale * 0.07, scale * 0.36)
+    rightShine.position.set(eyeSpacing + scale * 0.015, eyeY + scale * 0.015, scale * 0.41)
     this.headGroup.add(rightShine)
 
     // --- SIMPLE MOUTH (small line) ---
-    const mouthGeom = new THREE.BoxGeometry(scale * 0.1, scale * 0.02, scale * 0.01)
+    const mouthGeom = new THREE.BoxGeometry(scale * 0.08, scale * 0.018, scale * 0.01)
     const mouthMat = new THREE.MeshStandardMaterial({ color: colors.mouth })
     const mouth = new THREE.Mesh(mouthGeom, mouthMat)
-    mouth.position.set(0, -scale * 0.08, scale * 0.32)
+    mouth.position.set(0, -scale * 0.06, scale * 0.30)
     this.headGroup.add(mouth)
     this.mouth = mouth
 
