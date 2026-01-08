@@ -40,23 +40,25 @@ export const Config = {
   // Island layout - connected world
   islands: {
     count: 6,
-    baseSize: 50,      // Much bigger islands
-    baseHeight: 3,
-    segments: 32,      // High detail for smooth islands
-    spacing: 60        // Distance between island centers
+    baseSize: 80,      // Even bigger islands
+    baseHeight: 5,
+    segments: 64,      // Very high detail for smooth terrain
+    spacing: 100,      // More distance between island centers
+    hillHeight: 8,     // Maximum hill height
+    hillFrequency: 0.15 // How often hills appear
   },
 
   // Central hub
   centralHub: {
-    radius: 30,
-    height: 2
+    radius: 40,
+    height: 3
   },
 
   // Ocean
   ocean: {
-    size: 500,
+    size: 1000,
     color: 0x006994,
-    position: { x: 0, y: -2, z: 0 }
+    position: { x: 0, y: -6, z: 0 }  // Lower water well below island cliffs
   },
 
   // Clouds
@@ -151,9 +153,9 @@ export const Config = {
     height: 2.5,
     radius: 0.6,
     color: 0x4A90E2,  // Nice blue color
-    startPosition: { x: 0, y: 3, z: 0 },  // Spawn on central hub
-    speed: 10,
-    jumpForce: 12,
+    startPosition: { x: 0, y: 10, z: 0 },  // Spawn on central hub (higher for terrain)
+    speed: 12,
+    jumpForce: 14,
     gravity: 30,
     rotationSpeed: 3
   }
