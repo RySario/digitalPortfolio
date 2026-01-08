@@ -41,11 +41,11 @@ export class BasketballIsland extends Island {
    */
   createTerrain() {
     // Much larger island for the arena
-    this.radius = 75
+    this.radius = 85
     this.seed = this.radius * 1000
 
-    // Create a mostly flat circular platform for the arena
-    const segments = 64
+    // Create a mostly flat circular platform for the arena - high poly for smooth edges
+    const segments = 96
     const geometry = new THREE.BufferGeometry()
 
     const vertices = []
@@ -58,8 +58,8 @@ export class BasketballIsland extends Island {
     normals.push(0, 1, 0)
     uvs.push(0.5, 0.5)
 
-    // Concentric rings with flat center and sloped edges
-    const rings = 32
+    // Concentric rings with flat center and sloped edges - high poly
+    const rings = 48
     for (let ring = 1; ring <= rings; ring++) {
       const ringRadius = (ring / rings) * this.radius
 
@@ -212,8 +212,8 @@ export class BasketballIsland extends Island {
     const outerRadius = this.arenaRadius
     const innerRadius = this.arenaRadius - wallThickness
 
-    // Create wall segments for collision
-    const wallSegments = 32
+    // Create wall segments for collision - higher detail
+    const wallSegments = 48
     const wallMat = new THREE.MeshStandardMaterial({
       color: this.kingsColors.darkGray,
       roughness: 0.8
@@ -250,8 +250,8 @@ export class BasketballIsland extends Island {
       this.arenaCollisionMeshes.push(wall)
     }
 
-    // Arena floor (concrete underneath the court)
-    const floorGeom = new THREE.CylinderGeometry(outerRadius - 1, outerRadius - 1, 0.3, 48)
+    // Arena floor (concrete underneath the court) - high poly
+    const floorGeom = new THREE.CylinderGeometry(outerRadius - 1, outerRadius - 1, 0.3, 72)
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x3A3A3A,
       roughness: 0.9
@@ -591,167 +591,629 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create tiered arena seating
+   * Create tiered arena seating - Golden 1 Center style
+   * Features: Courtside, Lower Bowl, Club Level/Suites, Upper Bowl
    */
   createArenaSeating() {
-    const tiers = 6
-    const tierHeight = 2
-    const tierDepth = 4
-    const startRadius = 30
+    // Courtside seating (floor level - premium)
+    this.createCourtsideSeating()
+
+    // Lower bowl - main seating area
+    this.createLowerBowl()
+
+    // Club level with luxury suites
+    this.createClubLevel()
+
+    // Upper bowl
+    this.createUpperBowl()
+  }
+
+  /**
+   * Create courtside/floor level seating
+   */
+  createCourtsideSeating() {
+    const courtLength = 28 * this.courtScale
+    const courtWidth = 15 * this.courtScale
+    const seatHeight = this.floorHeight + 0.5
+
+    // Black courtside seats material
+    const courtsideMat = new THREE.MeshStandardMaterial({
+      color: 0x1A1A1A,
+      roughness: 0.7
+    })
+
+    // Seats along the sidelines
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < 20; i++) {
+        const x = (i - 9.5) * 2.5
+        const z = side * (courtWidth / 2 + 2)
+
+        // Individual seat
+        const seatGeom = new THREE.BoxGeometry(1.8, 0.8, 1.2)
+        const seat = new THREE.Mesh(seatGeom, courtsideMat)
+        seat.position.set(x, seatHeight + 0.4, z)
+        this.group.add(seat)
+
+        // Seat back
+        const backGeom = new THREE.BoxGeometry(1.8, 1.0, 0.15)
+        const back = new THREE.Mesh(backGeom, courtsideMat)
+        back.position.set(x, seatHeight + 0.9, z + side * 0.5)
+        this.group.add(back)
+      }
+    }
+
+    // Scorer's table and benches
+    this.createScorersTable()
+  }
+
+  /**
+   * Create scorer's table and team benches
+   */
+  createScorersTable() {
+    const tableY = this.floorHeight + 0.5
+    const courtWidth = 15 * this.courtScale
+
+    // Scorer's table (center court)
+    const tableGeom = new THREE.BoxGeometry(12, 0.8, 2)
+    const tableMat = new THREE.MeshStandardMaterial({
+      color: this.kingsColors.black,
+      roughness: 0.5
+    })
+    const table = new THREE.Mesh(tableGeom, tableMat)
+    table.position.set(0, tableY + 0.4, courtWidth / 2 + 5)
+    this.group.add(table)
+
+    // Team benches
+    const benchMat = new THREE.MeshStandardMaterial({
+      color: this.kingsColors.purple,
+      roughness: 0.6
+    })
+
+    // Home bench
+    const homeBench = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 1.5), benchMat)
+    homeBench.position.set(-12, tableY + 0.3, courtWidth / 2 + 4)
+    this.group.add(homeBench)
+
+    // Away bench
+    const awayBench = new THREE.Mesh(new THREE.BoxGeometry(8, 0.6, 1.5), benchMat)
+    awayBench.position.set(12, tableY + 0.3, courtWidth / 2 + 4)
+    this.group.add(awayBench)
+  }
+
+  /**
+   * Create lower bowl seating sections
+   */
+  createLowerBowl() {
+    const startRadius = 32
+    const tiers = 8
+    const tierHeight = 1.8
+    const tierDepth = 2.8
 
     for (let tier = 0; tier < tiers; tier++) {
       const radius = startRadius + tier * tierDepth
-      const height = this.floorHeight + 0.5 + tier * tierHeight
+      const height = this.floorHeight + 1 + tier * tierHeight
 
-      // Seating platform ring
+      // Seating platform (concrete riser)
       const innerR = radius
-      const outerR = radius + tierDepth * 0.9
+      const outerR = radius + tierDepth * 0.95
 
-      const seatGeom = new THREE.RingGeometry(innerR, outerR, 48)
-      const seatMat = new THREE.MeshStandardMaterial({
-        color: tier % 2 === 0 ? this.kingsColors.purple : this.kingsColors.gray,
-        side: THREE.DoubleSide,
-        roughness: 0.8
+      const riserGeom = new THREE.RingGeometry(innerR, outerR, 64)
+      const riserMat = new THREE.MeshStandardMaterial({
+        color: 0x4A4A4A,
+        roughness: 0.9
       })
-      const seats = new THREE.Mesh(seatGeom, seatMat)
-      seats.rotation.x = -Math.PI / 2
-      seats.position.y = height
-      this.group.add(seats)
+      const riser = new THREE.Mesh(riserGeom, riserMat)
+      riser.rotation.x = -Math.PI / 2
+      riser.position.y = height
+      this.group.add(riser)
 
-      // Seat backs
-      this.createSeatBackRing(radius, height, tier)
+      // Individual seats with alternating colors
+      this.createSeatingRow(radius + 1.2, height, tier, 'lower')
     }
   }
 
-  createSeatBackRing(radius, height, tier) {
-    const seatCount = 90
-    const color = tier % 2 === 0 ? this.kingsColors.silver : this.kingsColors.purple
-    const seatMat = new THREE.MeshStandardMaterial({ color: color })
+  /**
+   * Create club level with luxury suites
+   */
+  createClubLevel() {
+    const clubRadius = 52
+    const clubHeight = this.floorHeight + 16
 
+    // Club level concourse floor
+    const floorGeom = new THREE.RingGeometry(clubRadius - 3, clubRadius + 6, 64)
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x2A2A2A,
+      roughness: 0.7
+    })
+    const floor = new THREE.Mesh(floorGeom, floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.y = clubHeight
+    this.group.add(floor)
+
+    // Luxury suite boxes around the perimeter
+    const suiteCount = 24
+    for (let i = 0; i < suiteCount; i++) {
+      const angle = (i / suiteCount) * Math.PI * 2
+
+      // Skip entrances
+      const angleDeg = (angle * 180 / Math.PI) % 360
+      if (this.isEntranceAngle(angleDeg)) continue
+
+      this.createLuxurySuite(angle, clubRadius + 2, clubHeight)
+    }
+
+    // Club seating in front of suites
+    this.createSeatingRow(clubRadius - 2, clubHeight + 0.5, 0, 'club')
+  }
+
+  /**
+   * Create a luxury suite box
+   */
+  createLuxurySuite(angle, radius, height) {
+    const suiteGroup = new THREE.Group()
+
+    // Suite box structure
+    const boxGeom = new THREE.BoxGeometry(5, 3, 4)
+    const boxMat = new THREE.MeshStandardMaterial({
+      color: this.kingsColors.darkGray,
+      roughness: 0.6
+    })
+    const box = new THREE.Mesh(boxGeom, boxMat)
+    box.position.y = 1.5
+    suiteGroup.add(box)
+
+    // Glass front
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x88CCFF,
+      transparent: true,
+      opacity: 0.3,
+      roughness: 0.1
+    })
+    const glassGeom = new THREE.PlaneGeometry(4.8, 2.5)
+    const glass = new THREE.Mesh(glassGeom, glassMat)
+    glass.position.set(0, 1.5, -2.05)
+    suiteGroup.add(glass)
+
+    // Suite interior light (emissive)
+    const lightGeom = new THREE.PlaneGeometry(4, 0.3)
+    const lightMat = new THREE.MeshStandardMaterial({
+      color: 0xFFFFAA,
+      emissive: 0xFFFFAA,
+      emissiveIntensity: 0.3
+    })
+    const light = new THREE.Mesh(lightGeom, lightMat)
+    light.position.set(0, 2.8, 0)
+    light.rotation.x = Math.PI / 2
+    suiteGroup.add(light)
+
+    const x = Math.cos(angle) * radius
+    const z = Math.sin(angle) * radius
+    suiteGroup.position.set(x, height, z)
+    suiteGroup.rotation.y = -angle + Math.PI
+    this.group.add(suiteGroup)
+  }
+
+  /**
+   * Create upper bowl seating
+   */
+  createUpperBowl() {
+    const startRadius = 54
+    const startHeight = this.floorHeight + 17
+    const tiers = 6
+    const tierHeight = 2
+    const tierDepth = 2.5
+
+    for (let tier = 0; tier < tiers; tier++) {
+      const radius = startRadius + tier * tierDepth
+      const height = startHeight + tier * tierHeight
+
+      // Seating platform
+      const innerR = radius
+      const outerR = radius + tierDepth * 0.95
+
+      const riserGeom = new THREE.RingGeometry(innerR, outerR, 64)
+      const riserMat = new THREE.MeshStandardMaterial({
+        color: 0x3A3A3A,
+        roughness: 0.9
+      })
+      const riser = new THREE.Mesh(riserGeom, riserMat)
+      riser.rotation.x = -Math.PI / 2
+      riser.position.y = height
+      this.group.add(riser)
+
+      // Seats
+      this.createSeatingRow(radius + 1, height, tier, 'upper')
+    }
+  }
+
+  /**
+   * Create a row of individual seats
+   */
+  createSeatingRow(radius, height, tier, section) {
+    let seatCount, seatWidth, seatColor
+
+    switch (section) {
+      case 'lower':
+        seatCount = 100 + tier * 8
+        seatWidth = 0.9
+        seatColor = tier % 3 === 0 ? this.kingsColors.purple :
+                    tier % 3 === 1 ? this.kingsColors.gray : this.kingsColors.silver
+        break
+      case 'club':
+        seatCount = 60
+        seatWidth = 1.2
+        seatColor = this.kingsColors.purple
+        break
+      case 'upper':
+        seatCount = 80 + tier * 10
+        seatWidth = 0.8
+        seatColor = tier % 2 === 0 ? this.kingsColors.purple : this.kingsColors.gray
+        break
+      default:
+        seatCount = 80
+        seatWidth = 0.9
+        seatColor = this.kingsColors.gray
+    }
+
+    const seatMat = new THREE.MeshStandardMaterial({
+      color: seatColor,
+      roughness: 0.7
+    })
+
+    // Create seats around the ring
     for (let i = 0; i < seatCount; i++) {
       const angle = (i / seatCount) * Math.PI * 2
 
-      // Skip seats near entrances
+      // Skip entrance areas
       const angleDeg = (angle * 180 / Math.PI) % 360
-      const isEntrance = (angleDeg > 350 || angleDeg < 10) ||
-                        (angleDeg > 80 && angleDeg < 100) ||
-                        (angleDeg > 170 && angleDeg < 190) ||
-                        (angleDeg > 260 && angleDeg < 280)
-      if (isEntrance) continue
+      if (this.isEntranceAngle(angleDeg)) continue
 
-      const seatGeom = new THREE.BoxGeometry(0.8, 0.6, 0.12)
+      // Seat (low poly chair)
+      const seatGeom = new THREE.BoxGeometry(seatWidth, 0.6, 0.5)
       const seat = new THREE.Mesh(seatGeom, seatMat)
 
-      const x = Math.cos(angle) * (radius + 1)
-      const z = Math.sin(angle) * (radius + 1)
+      const x = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
 
       seat.position.set(x, height + 0.3, z)
       seat.rotation.y = angle + Math.PI
       this.group.add(seat)
+
+      // Seat back
+      const backGeom = new THREE.BoxGeometry(seatWidth * 0.9, 0.7, 0.12)
+      const back = new THREE.Mesh(backGeom, seatMat)
+      back.position.set(x, height + 0.65, z)
+      back.rotation.y = angle + Math.PI
+      this.group.add(back)
     }
   }
 
   /**
-   * Create arena roof - full dome enclosure
+   * Check if angle is near an entrance
+   */
+  isEntranceAngle(angleDeg) {
+    return (angleDeg > 352 || angleDeg < 8) ||
+           (angleDeg > 82 && angleDeg < 98) ||
+           (angleDeg > 172 && angleDeg < 188) ||
+           (angleDeg > 262 && angleDeg < 278)
+  }
+
+  /**
+   * Create arena roof - Golden 1 Center style modern steel truss roof
+   * The real Golden 1 Center has an iconic angular roof with exposed steel trusses
    */
   createArenaRoof() {
     const roofRadius = this.arenaRadius
-    const roofHeight = this.floorHeight + 25
+    const roofBaseHeight = this.floorHeight + 22
+    const roofPeakHeight = this.floorHeight + 35
 
-    // Full dome roof with slight flattening
-    const roofGeom = new THREE.SphereGeometry(roofRadius * 0.95, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2.2)
-    const roofMat = new THREE.MeshStandardMaterial({
+    // Steel material for trusses
+    const steelMat = new THREE.MeshStandardMaterial({
+      color: 0x3A3A3A,
+      metalness: 0.8,
+      roughness: 0.3
+    })
+
+    // Accent steel (lighter)
+    const lightSteelMat = new THREE.MeshStandardMaterial({
+      color: 0x5A5A5A,
+      metalness: 0.7,
+      roughness: 0.4
+    })
+
+    // Create the main roof panels - angular modern design
+    // Golden 1 Center has a distinctive sloped roof with multiple facets
+    this.createRoofPanels(roofRadius, roofBaseHeight, roofPeakHeight)
+
+    // Primary radial trusses - heavy structural beams radiating from center
+    const primaryTrussCount = 8
+    for (let i = 0; i < primaryTrussCount; i++) {
+      const angle = (i / primaryTrussCount) * Math.PI * 2
+      this.createPrimaryTruss(angle, roofRadius, roofBaseHeight, roofPeakHeight, steelMat)
+    }
+
+    // Secondary trusses between primary ones
+    const secondaryTrussCount = 16
+    for (let i = 0; i < secondaryTrussCount; i++) {
+      const angle = (i / secondaryTrussCount) * Math.PI * 2 + Math.PI / 16
+      this.createSecondaryTruss(angle, roofRadius, roofBaseHeight, roofPeakHeight, lightSteelMat)
+    }
+
+    // Perimeter ring beam - thick structural ring around the edge
+    const ringGeom = new THREE.TorusGeometry(roofRadius - 2, 1.2, 8, 64)
+    const ring = new THREE.Mesh(ringGeom, steelMat)
+    ring.rotation.x = Math.PI / 2
+    ring.position.y = roofBaseHeight
+    this.group.add(ring)
+
+    // Center tension ring (where cables/trusses meet)
+    const centerRingGeom = new THREE.TorusGeometry(8, 0.8, 8, 32)
+    const centerRing = new THREE.Mesh(centerRingGeom, steelMat)
+    centerRing.rotation.x = Math.PI / 2
+    centerRing.position.y = roofPeakHeight - 2
+    this.group.add(centerRing)
+
+    // Cross bracing between trusses
+    this.createCrossBracing(roofRadius, roofBaseHeight, roofPeakHeight, lightSteelMat)
+
+    // Add roof edge fascia - Kings purple accent
+    const fasciaGeom = new THREE.TorusGeometry(roofRadius - 0.5, 2, 4, 64)
+    const fasciaMat = new THREE.MeshStandardMaterial({
+      color: this.kingsColors.purple,
+      roughness: 0.6
+    })
+    const fascia = new THREE.Mesh(fasciaGeom, fasciaMat)
+    fascia.rotation.x = Math.PI / 2
+    fascia.position.y = roofBaseHeight - 1
+    this.group.add(fascia)
+  }
+
+  /**
+   * Create angular roof panels
+   */
+  createRoofPanels(radius, baseHeight, peakHeight) {
+    const panelMat = new THREE.MeshStandardMaterial({
       color: 0x1A1A1A,
-      roughness: 0.4,
-      metalness: 0.3,
+      roughness: 0.5,
+      metalness: 0.2,
       side: THREE.DoubleSide
     })
-    const roof = new THREE.Mesh(roofGeom, roofMat)
-    roof.rotation.x = Math.PI
-    roof.scale.y = 0.45  // Flatten the dome
-    roof.position.y = roofHeight
-    this.group.add(roof)
 
-    // Inner ceiling ring for structural support look
-    const innerRingGeom = new THREE.TorusGeometry(roofRadius * 0.7, 0.8, 8, 64)
-    const innerRingMat = new THREE.MeshStandardMaterial({
-      color: this.kingsColors.gray,
-      metalness: 0.6
-    })
-    const innerRing = new THREE.Mesh(innerRingGeom, innerRingMat)
-    innerRing.rotation.x = Math.PI / 2
-    innerRing.position.y = roofHeight - 3
-    this.group.add(innerRing)
+    // Create faceted roof panels radiating from center
+    const panelCount = 16
+    for (let i = 0; i < panelCount; i++) {
+      const angle1 = (i / panelCount) * Math.PI * 2
+      const angle2 = ((i + 1) / panelCount) * Math.PI * 2
 
-    // Outer support ring at roof edge
-    const outerRingGeom = new THREE.TorusGeometry(roofRadius * 0.9, 1, 8, 64)
-    const outerRing = new THREE.Mesh(outerRingGeom, innerRingMat)
-    outerRing.rotation.x = Math.PI / 2
-    outerRing.position.y = roofHeight - 8
-    this.group.add(outerRing)
+      // Create triangular panel geometry
+      const geometry = new THREE.BufferGeometry()
 
-    // Radial support beams
-    const beamCount = 16
-    for (let i = 0; i < beamCount; i++) {
-      const angle = (i / beamCount) * Math.PI * 2
-      const beamGeom = new THREE.BoxGeometry(0.6, 0.6, roofRadius * 0.85)
-      const beam = new THREE.Mesh(beamGeom, innerRingMat)
-      beam.position.set(
-        Math.cos(angle) * roofRadius * 0.45,
-        roofHeight - 5,
-        Math.sin(angle) * roofRadius * 0.45
-      )
-      beam.rotation.y = angle + Math.PI / 2
-      this.group.add(beam)
+      // Panel vertices: center peak, and two points on the perimeter
+      const vertices = new Float32Array([
+        // Center peak
+        0, peakHeight - 2, 0,
+        // Outer edge point 1
+        Math.cos(angle1) * (radius - 3), baseHeight, Math.sin(angle1) * (radius - 3),
+        // Outer edge point 2
+        Math.cos(angle2) * (radius - 3), baseHeight, Math.sin(angle2) * (radius - 3)
+      ])
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3))
+      geometry.computeVertexNormals()
+
+      const panel = new THREE.Mesh(geometry, panelMat)
+      this.group.add(panel)
     }
   }
 
   /**
-   * Create center jumbotron
+   * Create primary structural truss
+   */
+  createPrimaryTruss(angle, radius, baseHeight, peakHeight, material) {
+    const trussGroup = new THREE.Group()
+
+    // Main diagonal beam from perimeter to center peak
+    const beamLength = Math.sqrt(Math.pow(radius - 3, 2) + Math.pow(peakHeight - baseHeight, 2))
+    const beamAngle = Math.atan2(peakHeight - baseHeight, radius - 3)
+
+    const mainBeamGeom = new THREE.BoxGeometry(1.5, 1.2, beamLength)
+    const mainBeam = new THREE.Mesh(mainBeamGeom, material)
+    mainBeam.position.set(
+      Math.cos(angle) * (radius / 2 - 1.5),
+      (baseHeight + peakHeight) / 2 - 1,
+      Math.sin(angle) * (radius / 2 - 1.5)
+    )
+    mainBeam.rotation.y = -angle
+    mainBeam.rotation.x = beamAngle
+    trussGroup.add(mainBeam)
+
+    // Lower chord (horizontal)
+    const lowerChordGeom = new THREE.BoxGeometry(0.8, 0.6, radius - 10)
+    const lowerChord = new THREE.Mesh(lowerChordGeom, material)
+    lowerChord.position.set(
+      Math.cos(angle) * (radius / 2),
+      baseHeight + 1,
+      Math.sin(angle) * (radius / 2)
+    )
+    lowerChord.rotation.y = -angle + Math.PI / 2
+    trussGroup.add(lowerChord)
+
+    // Vertical web members
+    const webCount = 4
+    for (let w = 1; w <= webCount; w++) {
+      const webDist = (w / (webCount + 1)) * (radius - 10)
+      const webHeight = baseHeight + 1 + (peakHeight - baseHeight - 3) * (1 - w / (webCount + 1))
+      const webLength = webHeight - baseHeight - 1
+
+      const webGeom = new THREE.BoxGeometry(0.4, webLength, 0.4)
+      const web = new THREE.Mesh(webGeom, material)
+      web.position.set(
+        Math.cos(angle) * (8 + webDist),
+        baseHeight + 1 + webLength / 2,
+        Math.sin(angle) * (8 + webDist)
+      )
+      trussGroup.add(web)
+    }
+
+    this.group.add(trussGroup)
+  }
+
+  /**
+   * Create secondary structural truss (lighter weight)
+   */
+  createSecondaryTruss(angle, radius, baseHeight, peakHeight, material) {
+    // Simplified secondary truss - just the main diagonal
+    const beamLength = Math.sqrt(Math.pow(radius - 8, 2) + Math.pow(peakHeight - baseHeight - 5, 2))
+    const beamAngle = Math.atan2(peakHeight - baseHeight - 5, radius - 8)
+
+    const beamGeom = new THREE.BoxGeometry(0.6, 0.5, beamLength)
+    const beam = new THREE.Mesh(beamGeom, material)
+    beam.position.set(
+      Math.cos(angle) * (radius / 2),
+      (baseHeight + peakHeight) / 2,
+      Math.sin(angle) * (radius / 2)
+    )
+    beam.rotation.y = -angle
+    beam.rotation.x = beamAngle
+    this.group.add(beam)
+  }
+
+  /**
+   * Create cross bracing between trusses
+   */
+  createCrossBracing(radius, baseHeight, peakHeight, material) {
+    // Concentric ring braces at different heights
+    const ringHeights = [baseHeight + 4, baseHeight + 8, baseHeight + 12]
+    const ringRadii = [radius - 8, radius - 18, radius - 28]
+
+    ringHeights.forEach((height, index) => {
+      if (ringRadii[index] > 5) {
+        const braceGeom = new THREE.TorusGeometry(ringRadii[index], 0.3, 6, 48)
+        const brace = new THREE.Mesh(braceGeom, material)
+        brace.rotation.x = Math.PI / 2
+        brace.position.y = height
+        this.group.add(brace)
+      }
+    })
+  }
+
+  /**
+   * Create center jumbotron - Golden 1 Center style center-hung scoreboard
    */
   createJumbotron() {
     const group = new THREE.Group()
-    const size = 10
-    const height = this.floorHeight + 18
+    const width = 14
+    const depth = 10
+    const screenHeight = 4
+    const height = this.floorHeight + 20
 
-    // Main structure
-    const cubeGeom = new THREE.BoxGeometry(size, 2, size)
-    const cubeMat = new THREE.MeshStandardMaterial({
+    // Main housing structure (hexagonal-ish shape)
+    const housingMat = new THREE.MeshStandardMaterial({
       color: 0x1A1A1A,
-      roughness: 0.5
+      roughness: 0.4,
+      metalness: 0.3
     })
-    const cube = new THREE.Mesh(cubeGeom, cubeMat)
-    group.add(cube)
 
-    // Screens on each side
-    for (let i = 0; i < 4; i++) {
-      const screenGeom = new THREE.PlaneGeometry(size * 0.85, 1.8)
-      const screenMat = new THREE.MeshStandardMaterial({
-        color: this.kingsColors.purple,
-        emissive: this.kingsColors.purple,
-        emissiveIntensity: 0.2
-      })
+    // Top housing
+    const topGeom = new THREE.BoxGeometry(width + 2, 1.5, depth + 2)
+    const top = new THREE.Mesh(topGeom, housingMat)
+    top.position.y = screenHeight / 2 + 0.75
+    group.add(top)
+
+    // Bottom housing
+    const bottomGeom = new THREE.BoxGeometry(width + 1, 1, depth + 1)
+    const bottom = new THREE.Mesh(bottomGeom, housingMat)
+    bottom.position.y = -screenHeight / 2 - 0.5
+    group.add(bottom)
+
+    // Four main video screens
+    const screenMat = new THREE.MeshStandardMaterial({
+      color: 0x111122,
+      emissive: this.kingsColors.purple,
+      emissiveIntensity: 0.15,
+      roughness: 0.2
+    })
+
+    // Long sides (main screens)
+    for (let i = -1; i <= 1; i += 2) {
+      const screenGeom = new THREE.BoxGeometry(width, screenHeight, 0.3)
       const screen = new THREE.Mesh(screenGeom, screenMat)
+      screen.position.set(0, 0, i * (depth / 2 + 0.15))
+      group.add(screen)
 
-      const angle = (i / 4) * Math.PI * 2
-      screen.position.set(
-        Math.cos(angle) * (size / 2 + 0.05),
-        0,
-        Math.sin(angle) * (size / 2 + 0.05)
-      )
-      screen.rotation.y = -angle + Math.PI / 2
+      // Screen frame
+      const frameMat = new THREE.MeshStandardMaterial({
+        color: this.kingsColors.silver,
+        metalness: 0.6
+      })
+      const frameGeom = new THREE.BoxGeometry(width + 0.4, screenHeight + 0.4, 0.1)
+      const frame = new THREE.Mesh(frameGeom, frameMat)
+      frame.position.set(0, 0, i * (depth / 2 + 0.35))
+      group.add(frame)
+    }
+
+    // Short sides (end screens)
+    for (let i = -1; i <= 1; i += 2) {
+      const screenGeom = new THREE.BoxGeometry(0.3, screenHeight, depth)
+      const screen = new THREE.Mesh(screenGeom, screenMat)
+      screen.position.set(i * (width / 2 + 0.15), 0, 0)
       group.add(screen)
     }
 
-    // Support cables
-    const cables = [[-2, -2], [-2, 2], [2, -2], [2, 2]]
-    cables.forEach(([x, z]) => {
-      const cableGeom = new THREE.CylinderGeometry(0.05, 0.05, 5, 8)
-      const cableMat = new THREE.MeshStandardMaterial({ color: 0x333333 })
+    // Bottom ring display
+    const ringScreenGeom = new THREE.TorusGeometry(6, 0.8, 8, 32)
+    const ringScreen = new THREE.Mesh(ringScreenGeom, screenMat)
+    ringScreen.rotation.x = Math.PI / 2
+    ringScreen.position.y = -screenHeight / 2 - 1.2
+    group.add(ringScreen)
+
+    // Support cables/chains to roof
+    const cablePositions = [
+      [-width/2 - 0.5, -depth/2 - 0.5],
+      [-width/2 - 0.5, depth/2 + 0.5],
+      [width/2 + 0.5, -depth/2 - 0.5],
+      [width/2 + 0.5, depth/2 + 0.5]
+    ]
+    const cableHeight = 12
+    cablePositions.forEach(([x, z]) => {
+      const cableGeom = new THREE.CylinderGeometry(0.08, 0.08, cableHeight, 8)
+      const cableMat = new THREE.MeshStandardMaterial({
+        color: 0x444444,
+        metalness: 0.7
+      })
       const cable = new THREE.Mesh(cableGeom, cableMat)
-      cable.position.set(x, 2.5, z)
+      cable.position.set(x, screenHeight / 2 + cableHeight / 2, z)
       group.add(cable)
     })
+
+    // Center spotlight cluster
+    const spotlightRing = new THREE.Group()
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2
+      const spotGeom = new THREE.CylinderGeometry(0.4, 0.6, 1.2, 8)
+      const spotMat = new THREE.MeshStandardMaterial({
+        color: 0x333333,
+        metalness: 0.5
+      })
+      const spot = new THREE.Mesh(spotGeom, spotMat)
+      spot.position.set(Math.cos(angle) * 3, 0, Math.sin(angle) * 3)
+      spot.rotation.x = Math.PI
+      spotlightRing.add(spot)
+
+      // Light lens
+      const lensGeom = new THREE.CircleGeometry(0.35, 16)
+      const lensMat = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        emissive: 0xFFFFFF,
+        emissiveIntensity: 0.5
+      })
+      const lens = new THREE.Mesh(lensGeom, lensMat)
+      lens.position.set(Math.cos(angle) * 3, -0.6, Math.sin(angle) * 3)
+      lens.rotation.x = -Math.PI / 2
+      spotlightRing.add(lens)
+    }
+    spotlightRing.position.y = -screenHeight / 2 - 2
+    group.add(spotlightRing)
 
     group.position.y = height
     this.group.add(group)
