@@ -228,6 +228,7 @@ class Engine {
 
   /**
    * Add grass to all islands and central hub
+   * Skips islands that shouldn't have grass (like the basketball arena)
    */
   addGrassToWorld() {
     if (!this.grassSystem || !this.worldManager) return
@@ -237,9 +238,14 @@ class Engine {
     this.grassSystem.addGrassToIsland(new THREE.Vector3(0, 0, 0), hubRadius, 0.2)
     this.grassSystem.addFlowersToIsland(new THREE.Vector3(0, 0, 0), hubRadius)
 
-    // Add grass to each island
+    // Add grass to each island (except special ones like basketball arena)
     const islands = this.worldManager.getIslands()
     islands.forEach(island => {
+      // Skip basketball arena - it's a concrete/hardwood indoor arena
+      if (island.getName() === 'Golden 1 Center') {
+        return
+      }
+
       const islandRadius = island.radius || Config.islands.baseSize / 2
       this.grassSystem.addGrassToIsland(island.position, islandRadius, 0.15)
       this.grassSystem.addFlowersToIsland(island.position, islandRadius)
@@ -298,19 +304,24 @@ class Engine {
           // Update player position based on collision result
           this.player.setPosition(collisionResult.position)
 
-          // Update player grounded state - but NOT if jumping upward
+          // Update player grounded state - but NOT if actively jumping
           // This prevents the jump from being cancelled by collision detection
-          if (this.player.velocity.y > 0.5) {
-            // Player is moving upward (jumping) - don't mark as grounded
+          if (this.player.isJumping && this.player.velocity.y > 0) {
+            // Player is actively jumping upward - don't mark as grounded
+            this.player.isGrounded = false
+          } else if (this.player.velocity.y > 0.1) {
+            // Still moving up but not from initial jump - don't ground
             this.player.isGrounded = false
           } else {
             this.player.isGrounded = collisionResult.grounded
           }
 
           // Reset jumping if grounded AND moving downward or stationary
-          if (collisionResult.grounded && this.player.velocity.y <= 0) {
+          if (collisionResult.grounded && this.player.velocity.y <= 0.1) {
             this.player.isJumping = false
-            this.player.velocity.y = 0
+            if (this.player.velocity.y < 0) {
+              this.player.velocity.y = 0
+            }
           }
         }
 
