@@ -5,9 +5,11 @@ import { AssetLoader } from './AssetLoader.js'
 import { WorldManager } from '../world/WorldManager.js'
 import { CloudSystem } from '../world/CloudSystem.js'
 import { BoidSystem } from '../world/BoidSystem.js'
+import { GrassSystem } from '../world/GrassSystem.js'
 import { CollisionManager } from '../controls/CollisionManager.js'
 import { Player } from '../player/Player.js'
 import { ThirdPersonControls } from '../controls/ThirdPersonControls.js'
+import { GeometryUtils } from '../utils/GeometryUtils.js'
 
 class Engine {
   constructor() {
@@ -24,6 +26,7 @@ class Engine {
     this.cloudSystem = null
     this.collisionManager = null
     this.birdSystem = null
+    this.grassSystem = null
     this.player = null
 
     // Controls
@@ -69,9 +72,32 @@ class Engine {
     this.birdSystem = new BoidSystem(this.scene)
     console.log('Bird flock created')
 
+    // Create grass system and add to islands
+    this.grassSystem = new GrassSystem(this.scene)
+    this.addGrassToWorld()
+    console.log('Grass system created')
+
     // Create player
     try {
       this.player = new Player(this.scene)
+
+      // Set initial position on terrain - use central hub
+      const hubRadius = Config.centralHub.radius
+      const spawnX = Config.player.startPosition.x
+      const spawnZ = Config.player.startPosition.z
+
+      // Calculate terrain height using the same function as islands
+      const terrainHeight = GeometryUtils.getTerrainHeight(spawnX, spawnZ, hubRadius, hubRadius * 1000)
+
+      // Spawn above terrain
+      const spawnY = Math.max(terrainHeight + 0.5, 5)
+
+      const spawnPos = new THREE.Vector3(spawnX, spawnY, spawnZ)
+      this.player.setPosition(spawnPos)
+      this.player.isGrounded = true
+      this.player.velocity.set(0, 0, 0)
+
+      console.log('Player spawning at terrain height:', terrainHeight, 'final Y:', spawnY)
       console.log('Player created at:', this.player.getPosition())
 
       // Setup third-person controls
@@ -200,6 +226,26 @@ class Engine {
     console.log('Third-person controls initialized')
   }
 
+  /**
+   * Add grass to all islands and central hub
+   */
+  addGrassToWorld() {
+    if (!this.grassSystem || !this.worldManager) return
+
+    // Add grass to central hub
+    const hubRadius = Config.centralHub.radius
+    this.grassSystem.addGrassToIsland(new THREE.Vector3(0, 0, 0), hubRadius, 0.2)
+    this.grassSystem.addFlowersToIsland(new THREE.Vector3(0, 0, 0), hubRadius)
+
+    // Add grass to each island
+    const islands = this.worldManager.getIslands()
+    islands.forEach(island => {
+      const islandRadius = island.radius || Config.islands.baseSize / 2
+      this.grassSystem.addGrassToIsland(island.position, islandRadius, 0.15)
+      this.grassSystem.addFlowersToIsland(island.position, islandRadius)
+    })
+  }
+
   setupOrbitControls() {
     // Keep this for debugging/testing if needed
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
@@ -252,11 +298,17 @@ class Engine {
           // Update player position based on collision result
           this.player.setPosition(collisionResult.position)
 
-          // Update player grounded state
-          this.player.isGrounded = collisionResult.grounded
+          // Update player grounded state - but NOT if jumping upward
+          // This prevents the jump from being cancelled by collision detection
+          if (this.player.velocity.y > 0.5) {
+            // Player is moving upward (jumping) - don't mark as grounded
+            this.player.isGrounded = false
+          } else {
+            this.player.isGrounded = collisionResult.grounded
+          }
 
-          // Reset jumping if grounded
-          if (collisionResult.grounded) {
+          // Reset jumping if grounded AND moving downward or stationary
+          if (collisionResult.grounded && this.player.velocity.y <= 0) {
             this.player.isJumping = false
             this.player.velocity.y = 0
           }
@@ -274,6 +326,33 @@ class Engine {
       this.controls.update()
     }
 
+    // Update ocean waves and Bifrost bridges
+    if (this.worldManager) {
+      this.worldManager.updateOcean(delta)
+      this.worldManager.updateBifrost(delta)
+    }
+
+    // Check if player fell in water - respawn
+    if (this.player) {
+      const playerPos = this.player.getPosition()
+      const waterLevel = Config.ocean.position.y + 1  // Above water surface
+
+      if (playerPos.y < waterLevel) {
+        // Calculate spawn height using the same method as initial spawn
+        const hubRadius = Config.centralHub.radius
+        const spawnX = Config.player.startPosition.x
+        const spawnZ = Config.player.startPosition.z
+        const terrainHeight = GeometryUtils.getTerrainHeight(spawnX, spawnZ, hubRadius, hubRadius * 1000)
+        const spawnY = Math.max(terrainHeight + 0.5, 5)
+
+        // Respawn at spawn point
+        this.player.setPosition(new THREE.Vector3(spawnX, spawnY, spawnZ))
+        this.player.velocity.set(0, 0, 0)
+        this.player.isGrounded = true
+        console.log('Player fell in water - respawning at height:', spawnY)
+      }
+    }
+
     // Update clouds
     if (this.cloudSystem) {
       this.cloudSystem.update(delta)
@@ -282,6 +361,11 @@ class Engine {
     // Update birds
     if (this.birdSystem) {
       this.birdSystem.update(delta)
+    }
+
+    // Update grass (wind animation)
+    if (this.grassSystem) {
+      this.grassSystem.update(delta)
     }
 
     // Render scene

@@ -8,66 +8,277 @@ import { ColorPalettes } from './ColorPalettes.js'
 
 export class GeometryUtils {
   /**
-   * Create a smooth island terrain with varied heights
+   * Noise function for terrain generation
+   */
+  static noise(x, z, freq, seed) {
+    return (
+      Math.sin(x * freq + seed) * Math.cos(z * freq * 0.7 + seed * 0.5) +
+      Math.sin(x * freq * 1.7 + z * freq * 1.3 + seed * 0.3) * 0.5 +
+      Math.cos(x * freq * 0.5 + z * freq * 2.1 + seed * 0.8) * 0.3
+    ) / 1.8
+  }
+
+  /**
+   * Get terrain height at a specific point
+   * @param {number} x - X coordinate
+   * @param {number} z - Z coordinate
    * @param {number} radius - Island radius
-   * @param {number} segments - Number of segments (higher = smoother)
-   * @param {number} heightVariation - How much height variation (0-1)
+   * @param {number} seed - Random seed
+   * @returns {number} Height at that point
+   */
+  static getTerrainHeight(x, z, radius, seed = 1000) {
+    const distanceFromCenter = Math.sqrt(x * x + z * z)
+    const normalizedDistance = distanceFromCenter / radius
+
+    // Outside island
+    if (normalizedDistance > 1) return -10
+
+    // Multiple octaves of noise
+    const hillNoise1 = this.noise(x, z, 0.06, seed) * 4
+    const hillNoise2 = this.noise(x, z, 0.12, seed + 100) * 2
+    const hillNoise3 = this.noise(x, z, 0.25, seed + 200) * 1
+
+    let totalHeight = hillNoise1 + hillNoise2 + hillNoise3
+
+    // Edge falloff - smooth transition to edge
+    const edgeFalloff = Math.pow(Math.max(0, 1 - normalizedDistance), 0.7)
+    totalHeight *= edgeFalloff
+
+    // Base height + terrain variation
+    return 3 + Math.max(0, totalHeight * 1.5)
+  }
+
+  /**
+   * Create a solid island terrain using a disc with raised edges
+   * This approach creates a watertight mesh without gaps
+   * @param {number} radius - Island radius
+   * @param {number} segments - Number of segments
    * @returns {THREE.BufferGeometry}
    */
-  static createLowPolyIsland(radius = 10, segments = 32, heightVariation = 0.3) {
-    // Use high segment count for smooth, gap-free terrain
-    const actualSegments = Math.max(segments, 32)
-
-    const geometry = new THREE.CylinderGeometry(
-      radius,
-      radius * 0.9,   // Slightly tapered bottom
-      4,              // Base height
-      actualSegments, // Radial segments (around the circle)
-      4,              // Height segments
-      false           // Closed ends
-    )
-
-    // Create gentle terrain variation
-    const positions = geometry.attributes.position
-    const vertexCount = positions.count
-
-    // Use seeded random for consistent terrain
+  static createLowPolyIsland(radius = 40, segments = 64) {
+    const actualSegments = Math.max(segments, 48)
+    const rings = Math.floor(actualSegments / 2)
     const seed = radius * 1000
-    const seededRandom = (i) => {
-      const x = Math.sin(seed + i) * 10000
-      return x - Math.floor(x)
-    }
 
-    for (let i = 0; i < vertexCount; i++) {
-      const x = positions.getX(i)
-      const y = positions.getY(i)
-      const z = positions.getZ(i)
+    // Create vertices for top surface
+    const vertices = []
+    const indices = []
+    const normals = []
+    const uvs = []
 
-      // Calculate distance from center
-      const distanceFromCenter = Math.sqrt(x * x + z * z)
-      const normalizedDistance = distanceFromCenter / radius
+    // Center vertex
+    const centerHeight = this.getTerrainHeight(0, 0, radius, seed)
+    vertices.push(0, centerHeight, 0)
+    normals.push(0, 1, 0)
+    uvs.push(0.5, 0.5)
 
-      // Add gentle height variation to top surface only
-      if (y > 1.0) {
-        const angle = Math.atan2(z, x)
-        // Smooth noise using sine waves
-        const noise1 = Math.sin(angle * 2 + distanceFromCenter * 0.5) * 0.4
-        const noise2 = Math.cos(angle * 3) * 0.3
+    // Generate concentric rings of vertices for top surface
+    for (let ring = 1; ring <= rings; ring++) {
+      const ringRadius = (ring / rings) * radius
+      const ringSegments = actualSegments
 
-        // Combine for smooth hills
-        const totalNoise = (noise1 + noise2) * heightVariation
+      for (let seg = 0; seg < ringSegments; seg++) {
+        const angle = (seg / ringSegments) * Math.PI * 2
+        const x = Math.cos(angle) * ringRadius
+        const z = Math.sin(angle) * ringRadius
+        const y = this.getTerrainHeight(x, z, radius, seed)
 
-        // More height in center, less at edges
-        const heightMultiplier = 1 - (normalizedDistance * 0.7)
-        const heightOffset = totalNoise * heightMultiplier * 1.5
-
-        positions.setY(i, y + Math.max(0, heightOffset))
+        vertices.push(x, y, z)
+        normals.push(0, 1, 0)  // Will be recalculated
+        uvs.push(0.5 + (x / radius) * 0.5, 0.5 + (z / radius) * 0.5)
       }
     }
 
-    // Recompute normals for proper lighting
+    // Create triangles for top surface
+    // Center triangles (first ring) - winding order corrected for visibility from above
+    for (let seg = 0; seg < actualSegments; seg++) {
+      const next = (seg + 1) % actualSegments
+      indices.push(0, next + 1, seg + 1)  // Reversed winding order
+    }
+
+    // Ring triangles - winding order corrected
+    for (let ring = 1; ring < rings; ring++) {
+      const ringStart = 1 + (ring - 1) * actualSegments
+      const nextRingStart = 1 + ring * actualSegments
+
+      for (let seg = 0; seg < actualSegments; seg++) {
+        const next = (seg + 1) % actualSegments
+
+        const curr = ringStart + seg
+        const currNext = ringStart + next
+        const outer = nextRingStart + seg
+        const outerNext = nextRingStart + next
+
+        // Two triangles per quad - reversed winding order
+        indices.push(curr, currNext, outer)
+        indices.push(currNext, outerNext, outer)
+      }
+    }
+
+    // Add cliff sides
+    const outerRingStart = 1 + (rings - 1) * actualSegments
+    const cliffBaseY = -8  // Lower cliff base to fully hide from ocean
+    const sideVertexStart = vertices.length / 3
+
+    // Add bottom ring vertices
+    for (let seg = 0; seg < actualSegments; seg++) {
+      const angle = (seg / actualSegments) * Math.PI * 2
+      const x = Math.cos(angle) * radius * 0.95  // Less tapered for better coverage
+      const z = Math.sin(angle) * radius * 0.95
+
+      vertices.push(x, cliffBaseY, z)
+      normals.push(Math.cos(angle), 0, Math.sin(angle))
+      uvs.push(seg / actualSegments, 0)
+    }
+
+    // Create cliff face triangles - reversed winding order for outside visibility
+    for (let seg = 0; seg < actualSegments; seg++) {
+      const next = (seg + 1) % actualSegments
+
+      const topCurr = outerRingStart + seg
+      const topNext = outerRingStart + next
+      const botCurr = sideVertexStart + seg
+      const botNext = sideVertexStart + next
+
+      indices.push(topCurr, topNext, botCurr)
+      indices.push(topNext, botNext, botCurr)
+    }
+
+    // Add bottom cap - visible from below
+    const bottomCenterIdx = vertices.length / 3
+    vertices.push(0, cliffBaseY, 0)
+    normals.push(0, -1, 0)
+    uvs.push(0.5, 0.5)
+
+    for (let seg = 0; seg < actualSegments; seg++) {
+      const next = (seg + 1) % actualSegments
+      indices.push(bottomCenterIdx, sideVertexStart + seg, sideVertexStart + next)  // Reversed
+    }
+
+    // Create geometry
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
+    geometry.setIndex(indices)
+
+    // Recompute normals for smooth shading
     geometry.computeVertexNormals()
+
     return geometry
+  }
+
+  /**
+   * Create a fully textured island with varied terrain colors
+   * @param {number} radius - Island radius
+   * @param {number} segments - Number of segments
+   * @returns {THREE.Mesh}
+   */
+  static createTexturedIsland(radius = 40, segments = 64) {
+    const geometry = this.createLowPolyIsland(radius, segments)
+    const positions = geometry.attributes.position
+    const colors = new Float32Array(positions.count * 3)
+
+    const seed = radius * 1000
+
+    // Rich color palette for varied terrain
+    const colors_palette = {
+      sand: new THREE.Color(0xC2B280),       // Sandy beach
+      sandDark: new THREE.Color(0xA89060),   // Wet sand
+      grassLight: new THREE.Color(0x7CCD7C), // Light grass
+      grass: new THREE.Color(0x4CAF50),      // Normal grass
+      grassDark: new THREE.Color(0x2E7D32),  // Dark grass
+      dirt: new THREE.Color(0x8B7355),       // Dirt path
+      dirtDark: new THREE.Color(0x654321),   // Dark dirt
+      rock: new THREE.Color(0x808080),       // Gray rock
+      rockDark: new THREE.Color(0x505050),   // Dark rock
+      moss: new THREE.Color(0x4A5D23),       // Mossy rock
+    }
+
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i)
+      const y = positions.getY(i)
+      const z = positions.getZ(i)
+      const distFromCenter = Math.sqrt(x * x + z * z)
+      const normalizedDist = distFromCenter / radius
+
+      let color = new THREE.Color()
+
+      // Add noise-based variation
+      const variation = this.noise(x * 0.3, z * 0.3, 1, seed + 999) * 0.5 + 0.5
+      const patchNoise = this.noise(x * 0.15, z * 0.15, 1, seed + 888)
+
+      if (y < -3) {
+        // Bottom/underwater - dark rock
+        color.copy(colors_palette.rockDark)
+      } else if (y < 0) {
+        // Cliff face - rocky with moss patches
+        if (patchNoise > 0.3) {
+          color.lerpColors(colors_palette.rock, colors_palette.moss, variation)
+        } else {
+          color.lerpColors(colors_palette.rockDark, colors_palette.rock, variation)
+        }
+      } else if (y < 3.5) {
+        // Beach/edge area - sand
+        const t = y / 3.5
+        color.lerpColors(colors_palette.sand, colors_palette.grassLight, t * variation)
+      } else if (y < 5) {
+        // Transition to grass
+        const t = (y - 3.5) / 1.5
+        if (patchNoise > 0.2) {
+          color.lerpColors(colors_palette.grassLight, colors_palette.grass, t)
+        } else {
+          color.lerpColors(colors_palette.sand, colors_palette.dirt, t)
+        }
+      } else if (y < 7) {
+        // Main grass area with dirt patches
+        if (patchNoise > 0.4) {
+          color.lerpColors(colors_palette.grass, colors_palette.grassDark, variation)
+        } else if (patchNoise < -0.3) {
+          color.lerpColors(colors_palette.dirt, colors_palette.dirtDark, variation)
+        } else {
+          color.lerpColors(colors_palette.grassLight, colors_palette.grass, variation)
+        }
+      } else if (y < 9) {
+        // Higher elevation - more dirt and rock
+        const t = (y - 7) / 2
+        if (patchNoise > 0.2) {
+          color.lerpColors(colors_palette.grassDark, colors_palette.dirt, t)
+        } else {
+          color.lerpColors(colors_palette.dirt, colors_palette.rock, t)
+        }
+      } else {
+        // Hill tops - rocky
+        color.lerpColors(colors_palette.rock, colors_palette.rockDark, variation)
+        // Add moss patches
+        if (patchNoise > 0.5) {
+          color.lerp(colors_palette.moss, 0.4)
+        }
+      }
+
+      // Subtle edge darkening
+      const edgeDarken = 0.85 + (1 - normalizedDist) * 0.15
+      color.multiplyScalar(edgeDarken)
+
+      colors[i * 3] = color.r
+      colors[i * 3 + 1] = color.g
+      colors[i * 3 + 2] = color.b
+    }
+
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+
+    const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.85,
+      metalness: 0.05,
+      flatShading: false
+    })
+
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+
+    return mesh
   }
 
   /**
@@ -108,32 +319,41 @@ export class GeometryUtils {
   }
 
   /**
-   * Create a low-poly rock
+   * Create a natural-looking rock with smooth shading
    * @param {number} scale - Rock size
    * @param {number} color - Rock color
    * @returns {THREE.Mesh}
    */
   static createLowPolyRock(scale = 1, color = 0x808080) {
-    const geometry = new THREE.DodecahedronGeometry(scale, 0)
+    // Use higher subdivision for smoother appearance
+    const geometry = new THREE.IcosahedronGeometry(scale, 2)
     const positions = geometry.attributes.position
 
-    // Randomize vertices
+    // Store original positions for consistent deformation
+    const seed = Math.random() * 1000
+
+    // Randomize vertices with noise for natural look
     for (let i = 0; i < positions.count; i++) {
       const x = positions.getX(i)
       const y = positions.getY(i)
       const z = positions.getZ(i)
 
-      const noise = 0.7 + Math.random() * 0.6
-      positions.setX(i, x * noise)
-      positions.setY(i, y * noise)
-      positions.setZ(i, z * noise)
+      // Use coherent noise based on vertex position for smoother deformation
+      const noiseVal = this.noise(x * 2, z * 2, 0.5, seed)
+      const deform = 0.75 + noiseVal * 0.35
+
+      positions.setX(i, x * deform)
+      positions.setY(i, y * deform * 0.8) // Flatten slightly
+      positions.setZ(i, z * deform)
     }
 
     geometry.computeVertexNormals()
 
     const material = new THREE.MeshStandardMaterial({
       color: color,
-      flatShading: true
+      roughness: 0.85,
+      metalness: 0.05,
+      flatShading: false  // Smooth shading for better appearance
     })
 
     const mesh = new THREE.Mesh(geometry, material)
@@ -256,20 +476,26 @@ export class GeometryUtils {
    * @returns {THREE.Mesh}
    */
   static createBoulder(scale = 2, color = 0x808080) {
-    // Use icosahedron for more angular, realistic rock shape
-    const geometry = new THREE.IcosahedronGeometry(scale, 1)
+    // Use higher subdivision icosahedron for smooth, detailed rock
+    const geometry = new THREE.IcosahedronGeometry(scale, 3)
     const positions = geometry.attributes.position
 
-    // Deform vertices for natural rock appearance
+    // Use seed for consistent deformation
+    const seed = Math.random() * 1000
+
+    // Deform vertices for natural rock appearance with coherent noise
     for (let i = 0; i < positions.count; i++) {
       const x = positions.getX(i)
       const y = positions.getY(i)
       const z = positions.getZ(i)
 
-      // Random deformation
-      const deform = 0.6 + Math.random() * 0.8
+      // Use coherent noise for smoother, more natural deformation
+      const noiseVal = this.noise(x * 1.5, z * 1.5, 0.5, seed)
+      const noiseVal2 = this.noise(x * 3, y * 3, 0.3, seed + 500)
+      const deform = 0.7 + noiseVal * 0.25 + noiseVal2 * 0.15
+
       positions.setX(i, x * deform)
-      positions.setY(i, y * deform * 0.9) // Slightly flattened
+      positions.setY(i, y * deform * 0.85) // Slightly flattened
       positions.setZ(i, z * deform)
     }
 
@@ -277,9 +503,9 @@ export class GeometryUtils {
 
     const material = new THREE.MeshStandardMaterial({
       color: color,
-      flatShading: true,
+      flatShading: false,  // Smooth shading for realistic rock
       roughness: 0.9,
-      metalness: 0.1
+      metalness: 0.05
     })
 
     const mesh = new THREE.Mesh(geometry, material)
@@ -296,24 +522,35 @@ export class GeometryUtils {
    * @returns {THREE.Mesh}
    */
   static createClimbingHold(size = 0.3, color = 0xFF6B35) {
-    // Create irregular hold shape
-    const geometry = new THREE.SphereGeometry(size, 6, 5)
+    // Create smooth irregular hold shape with higher detail
+    const geometry = new THREE.SphereGeometry(size, 16, 12)
     const positions = geometry.attributes.position
 
-    // Flatten one side (attach to wall)
+    const seed = Math.random() * 1000
+
+    // Flatten one side (attach to wall) and add subtle variation
     for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i)
+      const y = positions.getY(i)
       const z = positions.getZ(i)
+
+      // Add subtle noise for natural look
+      const noiseVal = this.noise(x * 5, y * 5, 1, seed) * 0.1
+
       if (z < 0) {
         positions.setZ(i, z * 0.3)
       }
+      positions.setX(i, x * (1 + noiseVal))
+      positions.setY(i, y * (1 + noiseVal))
     }
 
     geometry.computeVertexNormals()
 
     const material = new THREE.MeshStandardMaterial({
       color: color,
-      flatShading: true,
-      roughness: 0.8
+      flatShading: false,  // Smooth shading
+      roughness: 0.75,
+      metalness: 0.1
     })
 
     const mesh = new THREE.Mesh(geometry, material)

@@ -176,8 +176,9 @@ export class ThirdPersonControls {
     this.cameraYaw -= movementX * this.mouseSensitivity
     this.cameraPitch += movementY * this.mouseSensitivity
 
-    // Limit vertical angle (don't go below ground or too high)
-    this.cameraPitch = Math.max(0.1, Math.min(1.2, this.cameraPitch))
+    // Limit vertical angle (allow looking up and down)
+    // Negative pitch = looking up, positive = looking down
+    this.cameraPitch = Math.max(-0.5, Math.min(1.2, this.cameraPitch))
   }
 
   onInteract() {
@@ -221,11 +222,11 @@ export class ThirdPersonControls {
       -Math.cos(this.cameraYaw)
     )
 
-    // Right is perpendicular to forward
+    // Right is perpendicular to forward (90 degrees clockwise from above)
     const right = new THREE.Vector3(
-      -Math.cos(this.cameraYaw),
+      Math.cos(this.cameraYaw),
       0,
-      Math.sin(this.cameraYaw)
+      -Math.sin(this.cameraYaw)
     )
 
     // Build movement vector from input
@@ -268,8 +269,9 @@ export class ThirdPersonControls {
     const currentPos = this.player.getPosition()
     const proposedPos = currentPos.clone().add(moveDirection)
 
-    // Apply gravity to Y if not grounded
-    if (!this.player.isGrounded) {
+    // Apply vertical velocity - ALWAYS if jumping up, or if not grounded
+    // This fixes the jump bug where velocity wasn't being applied
+    if (this.player.velocity.y > 0 || !this.player.isGrounded) {
       proposedPos.y += this.player.velocity.y * delta
     }
 

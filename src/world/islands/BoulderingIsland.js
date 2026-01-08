@@ -16,73 +16,74 @@ export class BoulderingIsland extends Island {
 
   createDecorations() {
     const grayColors = [0x808080, 0x696969, 0x778899, 0x708090, 0x8B8B8B]
+    const scale = this.size / 50  // Scale for larger islands
 
     // === MAIN BOULDERING AREA - Multiple boulder problems ===
 
     // Central large boulder (main attraction) with route
     const centerBoulder = this.createBoulderWithRoute(
-      3.5,
+      4.5 * scale,
       grayColors[0],
       [0xFF4444, 0xFF4444, 0xFF4444, 0xFF4444],  // Red route
-      10
+      12
     )
-    this.addDecoration(centerBoulder, 0, 1, 0)
+    this.addDecoration(centerBoulder, 0, 0, 0)
 
     // Crash pad under center boulder
-    const centerPad = GeometryUtils.createBox(4, 0.4, 4, 0x4169E1)  // Royal blue pad
-    this.addDecoration(centerPad, 0, 1.2, 1.5)
+    const centerPad = GeometryUtils.createBox(5 * scale, 0.5, 5 * scale, 0x4169E1)
+    this.addDecoration(centerPad, 0, 0.25, 2 * scale)
 
     // Left boulder cluster - easier problems
     const leftBoulder1 = this.createBoulderWithRoute(
-      2.5,
+      3 * scale,
       grayColors[1],
       [0x44FF44, 0x44FF44, 0x44FF44],  // Green route (easier)
-      6
+      8
     )
-    this.addDecoration(leftBoulder1, -6, 1, -3)
+    this.addDecoration(leftBoulder1, -8 * scale, 0, -4 * scale)
 
-    const leftPad = GeometryUtils.createBox(3, 0.4, 3, 0xFF8C00)  // Orange pad
-    this.addDecoration(leftPad, -6, 1.2, -1.5)
+    const leftPad = GeometryUtils.createBox(4 * scale, 0.5, 4 * scale, 0xFF8C00)
+    this.addDecoration(leftPad, -8 * scale, 0.25, -2 * scale)
 
-    const leftBoulder2 = GeometryUtils.createBoulder(2, grayColors[2])
-    this.addDecoration(leftBoulder2, -8, 1, 2)
+    const leftBoulder2 = GeometryUtils.createBoulder(2.5 * scale, grayColors[2])
+    this.addDecoration(leftBoulder2, -12 * scale, 0, 3 * scale)
 
     // Right boulder - harder overhang
     const rightBoulder = this.createOverhangBoulder(
-      3,
+      4 * scale,
       grayColors[3],
       [0x000000, 0x000000, 0x000000, 0x000000],  // Black route (hardest)
-      8
+      10
     )
-    this.addDecoration(rightBoulder, 7, 1, -2)
+    this.addDecoration(rightBoulder, 10 * scale, 0, -3 * scale)
 
-    const rightPad = GeometryUtils.createBox(3.5, 0.4, 3.5, 0x8B4513)  // Brown pad
-    this.addDecoration(rightPad, 7, 1.2, 0.5)
+    const rightPad = GeometryUtils.createBox(4.5 * scale, 0.5, 4.5 * scale, 0x8B4513)
+    this.addDecoration(rightPad, 10 * scale, 0.25, 0.5 * scale)
 
     // Back boulder wall - warm up area
     const backBoulder1 = this.createBoulderWithRoute(
-      2,
+      2.5 * scale,
       grayColors[4],
       [0xFFFF44, 0xFFFF44, 0xFFFF44],  // Yellow route
-      5
+      6
     )
-    this.addDecoration(backBoulder1, 2, 1, -8)
+    this.addDecoration(backBoulder1, 3 * scale, 0, -12 * scale)
 
-    const backBoulder2 = GeometryUtils.createBoulder(1.8, grayColors[1])
-    this.addDecoration(backBoulder2, -3, 1, -7)
+    const backBoulder2 = GeometryUtils.createBoulder(2.2 * scale, grayColors[1])
+    this.addDecoration(backBoulder2, -4 * scale, 0, -10 * scale)
 
-    // Small sitting/practice boulders
-    for (let i = 0; i < 8; i++) {
+    // Small sitting/practice boulders around perimeter
+    for (let i = 0; i < 12; i++) {
       const smallBoulder = GeometryUtils.createBoulder(
-        0.6 + Math.random() * 0.8,
+        (0.8 + Math.random() * 1) * scale,
         grayColors[Math.floor(Math.random() * grayColors.length)]
       )
-      const angle = (Math.PI * 2 * i) / 8
-      const distance = 10 + Math.random() * 3
+      const angle = (Math.PI * 2 * i) / 12
+      const distance = this.radius * (0.6 + Math.random() * 0.25)
       this.addDecoration(
         smallBoulder,
         Math.cos(angle) * distance,
-        1,
+        0,
         Math.sin(angle) * distance
       )
     }
@@ -90,67 +91,55 @@ export class BoulderingIsland extends Island {
     // === BOULDERING ACCESSORIES ===
 
     // Chalk bags scattered around
-    const chalkBag1 = GeometryUtils.createCylinder(0.25, 0.3, 0.4, 0xE8E8E8, 8)
-    this.addDecoration(chalkBag1, 1, 1.3, 3)
+    const chalkBag1 = GeometryUtils.createCylinder(0.3, 0.35, 0.5, 0xE8E8E8, 8)
+    this.addDecoration(chalkBag1, 2 * scale, 0.25, 4 * scale)
 
-    const chalkBag2 = GeometryUtils.createCylinder(0.25, 0.3, 0.4, 0xFF6B35, 8)
-    this.addDecoration(chalkBag2, -4, 1.3, 0)
+    const chalkBag2 = GeometryUtils.createCylinder(0.3, 0.35, 0.5, 0xFF6B35, 8)
+    this.addDecoration(chalkBag2, -5 * scale, 0.25, 0)
 
     // Brushes for cleaning holds
     const brush1 = this.createBrush()
-    this.addDecoration(brush1, 3, 1.3, 2)
+    this.addDecoration(brush1, 4 * scale, 0.3, 3 * scale)
 
     // === NATURAL SCENERY ===
 
-    // Grass patches around the boulders
-    const grassPositions = [
-      [4, 1, 5],
-      [-5, 1, 4],
-      [6, 1, -6],
-      [-7, 1, -4],
-      [9, 1, 3],
-      [-9, 1, 1]
-    ]
-
-    grassPositions.forEach(pos => {
-      const grass = GeometryUtils.createGrassPatch(25, 2, 0x7CFC00)
-      this.addDecoration(grass, ...pos)
-    })
-
     // Pine trees around perimeter
-    const tree1 = GeometryUtils.createLowPolyTree(0x2F4F2F, 1.2)
-    this.addDecoration(tree1, 10, 1, -5)
-
-    const tree2 = GeometryUtils.createLowPolyTree(0x228B22, 1.1)
-    this.addDecoration(tree2, -10, 1, -3)
-
-    const tree3 = GeometryUtils.createLowPolyTree(0x2F4F2F, 1)
-    this.addDecoration(tree3, 8, 1, 8)
-
-    const tree4 = GeometryUtils.createLowPolyTree(0x228B22, 1.3)
-    this.addDecoration(tree4, -9, 1, 6)
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2
+      const distance = this.radius * 0.85
+      const treeScale = 1.5 + Math.random() * 0.8
+      const tree = GeometryUtils.createLowPolyTree(
+        i % 2 === 0 ? 0x2F4F2F : 0x228B22,
+        treeScale
+      )
+      this.addDecoration(tree, Math.cos(angle) * distance, 0, Math.sin(angle) * distance)
+    }
 
     // Small bushes
-    const bush1 = GeometryUtils.createLowPolyBush(0x556B2F, 0.8)
-    this.addDecoration(bush1, 5, 1, 7)
-
-    const bush2 = GeometryUtils.createLowPolyBush(0x6B8E23, 0.7)
-    this.addDecoration(bush2, -6, 1, 6)
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + 0.4
+      const distance = this.radius * 0.7
+      const bush = GeometryUtils.createLowPolyBush(
+        i % 2 === 0 ? 0x556B2F : 0x6B8E23,
+        0.8 + Math.random() * 0.4
+      )
+      this.addDecoration(bush, Math.cos(angle) * distance, 0, Math.sin(angle) * distance)
+    }
 
     // Benches for resting
-    const bench1 = GeometryUtils.createBench(2.5, 0x8B4513)
-    this.addDecoration(bench1, 10, 1, 1)
+    const bench1 = GeometryUtils.createBench(3, 0x8B4513)
+    this.addDecoration(bench1, 14 * scale, 0, 2 * scale)
 
-    const bench2 = GeometryUtils.createBench(2, 0x654321)
+    const bench2 = GeometryUtils.createBench(2.5, 0x654321)
     bench2.rotation.y = Math.PI / 3
-    this.addDecoration(bench2, -8, 1, -6)
+    this.addDecoration(bench2, -12 * scale, 0, -8 * scale)
 
     // Route information sign (simple board)
-    const signPost = GeometryUtils.createCylinder(0.1, 0.1, 2, 0x8B4513, 8)
-    this.addDecoration(signPost, -10, 2, -8)
+    const signPost = GeometryUtils.createCylinder(0.15, 0.15, 2.5, 0x8B4513, 8)
+    this.addDecoration(signPost, -15 * scale, 1.25, -12 * scale)
 
-    const signBoard = GeometryUtils.createBox(2, 1.5, 0.1, 0xF5DEB3)
-    this.addDecoration(signBoard, -10, 3.5, -8)
+    const signBoard = GeometryUtils.createBox(2.5, 1.8, 0.15, 0xF5DEB3)
+    this.addDecoration(signBoard, -15 * scale, 3, -12 * scale)
   }
 
   /**
