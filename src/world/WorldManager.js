@@ -212,8 +212,11 @@ export class WorldManager {
 
     for (let i = 0; i < islandClasses.length; i++) {
       const angle = i * angleStep
-      const x = Math.cos(angle) * spacing
-      const z = Math.sin(angle) * spacing
+
+      // Basketball island (index 0) needs more distance for the larger arena
+      const islandSpacing = (i === 0) ? spacing + 80 : spacing
+      const x = Math.cos(angle) * islandSpacing
+      const z = Math.sin(angle) * islandSpacing
 
       const position = new THREE.Vector3(x, 0, z)
       const IslandClass = islandClasses[i]
@@ -263,26 +266,12 @@ export class WorldManager {
     const bifrostMaterial = this.createBifrostMaterial()
     this.bifrostMaterials.push(bifrostMaterial)
 
-    // Main bridge surface - curved with more segments for smooth appearance
-    const segmentsX = 8
-    const segmentsZ = Math.ceil(bridgeLength / 2)
+    // Main bridge surface - completely flat and straight for easy walking
+    const segmentsX = 4
+    const segmentsZ = Math.ceil(bridgeLength / 4)
     const bridgeGeom = new THREE.PlaneGeometry(bridgeWidth, bridgeLength, segmentsX, segmentsZ)
 
-    // Add slight curve to the bridge (arch shape)
-    const positions = bridgeGeom.attributes.position.array
-    for (let i = 0; i < positions.length; i += 3) {
-      const x = positions[i]
-      const z = positions[i + 1]  // In plane geometry, y is the length direction before rotation
-
-      // Subtle arch along the length
-      const archHeight = Math.sin((z / bridgeLength + 0.5) * Math.PI) * 1.5
-
-      // Slight curve across width (like a road)
-      const widthCurve = Math.cos((x / bridgeWidth) * Math.PI) * 0.3
-
-      positions[i + 2] = archHeight + widthCurve
-    }
-    bridgeGeom.computeVertexNormals()
+    // No curve - keep bridge completely flat for easy traversal
 
     const bridgeSurface = new THREE.Mesh(bridgeGeom, bifrostMaterial)
     bridgeSurface.rotation.x = -Math.PI / 2
@@ -307,13 +296,13 @@ export class WorldManager {
     this.scene.add(bridgeGroup)
     this.bridges.push(bridgeGroup)
 
-    // Create invisible collision mesh for walking
-    const collisionGeom = new THREE.BoxGeometry(bridgeWidth, 0.5, bridgeLength)
+    // Create invisible collision mesh for walking - flat and straight
+    const collisionGeom = new THREE.BoxGeometry(bridgeWidth, 1, bridgeLength)
     const collisionMat = new THREE.MeshBasicMaterial({ visible: false })
     const collisionMesh = new THREE.Mesh(collisionGeom, collisionMat)
     collisionMesh.position.set(
       Math.cos(angle) * bridgeDistance,
-      bridgeHeight + 0.75,  // Slightly above surface for better collision
+      bridgeHeight + 0.5,  // Aligned with flat bridge surface
       Math.sin(angle) * bridgeDistance
     )
     collisionMesh.rotation.y = angle
