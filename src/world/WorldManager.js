@@ -23,6 +23,8 @@ export class WorldManager {
     this.ocean = null
     this.centralHub = null
     this.bridges = []
+    this.bifrostMaterials = []  // For animation
+    this.bifrostTime = 0
   }
 
   /**
@@ -40,16 +42,30 @@ export class WorldManager {
   }
 
   /**
-   * Create the ocean plane
+   * Create the animated ocean with waves
    */
   createOcean() {
+    // High-poly plane for smooth waves
+    const segments = 128
     const geometry = new THREE.PlaneGeometry(
       Config.ocean.size,
-      Config.ocean.size
+      Config.ocean.size,
+      segments,
+      segments
     )
+
+    // Store original positions for wave animation
+    this.oceanGeometry = geometry
+    this.oceanOriginalPositions = geometry.attributes.position.array.slice()
+
+    // Ocean material with transparency and shininess
     const material = new THREE.MeshStandardMaterial({
       color: Config.ocean.color,
-      flatShading: true
+      transparent: true,
+      opacity: 0.85,
+      roughness: 0.2,
+      metalness: 0.1,
+      side: THREE.DoubleSide
     })
 
     this.ocean = new THREE.Mesh(geometry, material)
@@ -58,36 +74,73 @@ export class WorldManager {
     this.ocean.receiveShadow = true
 
     this.scene.add(this.ocean)
+
+    // Start wave animation
+    this.waveTime = 0
   }
 
   /**
-   * Create the central hub
+   * Update ocean waves
+   * @param {number} delta - Time delta
+   */
+  updateOcean(delta) {
+    if (!this.ocean || !this.oceanGeometry) return
+
+    this.waveTime += delta
+
+    const positions = this.oceanGeometry.attributes.position.array
+    const original = this.oceanOriginalPositions
+
+    // Wave parameters
+    const waveSpeed = 1.5
+    const waveHeight = 1.2
+    const waveFrequency = 0.03
+    const waveFrequency2 = 0.02
+
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = original[i]
+      const y = original[i + 1]
+
+      // Combine multiple wave patterns for realistic ocean
+      const wave1 = Math.sin(x * waveFrequency + this.waveTime * waveSpeed) * waveHeight
+      const wave2 = Math.sin(y * waveFrequency2 + this.waveTime * waveSpeed * 0.8) * waveHeight * 0.6
+      const wave3 = Math.sin((x + y) * waveFrequency * 0.7 + this.waveTime * waveSpeed * 1.2) * waveHeight * 0.3
+
+      // Z is the vertical axis after rotation
+      positions[i + 2] = wave1 + wave2 + wave3
+    }
+
+    this.oceanGeometry.attributes.position.needsUpdate = true
+    this.oceanGeometry.computeVertexNormals()
+  }
+
+  /**
+   * Create the central hub with textured terrain
    */
   createCentralHub() {
     console.log('Creating central hub with radius:', Config.centralHub.radius)
 
-    const geometry = GeometryUtils.createLowPolyIsland(
+    // Use textured island for the central hub too
+    this.centralHub = GeometryUtils.createTexturedIsland(
       Config.centralHub.radius,
       Config.islands.segments
     )
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x9CCC65,  // Light green
-      flatShading: true
-    })
-
-    this.centralHub = new THREE.Mesh(geometry, material)
     this.centralHub.position.set(0, 0, 0)
-    this.centralHub.castShadow = true
-    this.centralHub.receiveShadow = true
 
     this.scene.add(this.centralHub)
 
     console.log('Central hub created at position:', this.centralHub.position)
-    console.log('Central hub geometry vertices:', geometry.attributes.position.count)
+    console.log('Central hub geometry vertices:', this.centralHub.geometry.attributes.position.count)
 
     // Register for collision
     if (this.collisionManager) {
       this.collisionManager.registerCollisionMesh(this.centralHub)
+      // Register central hub as an island for terrain height lookup
+      this.collisionManager.registerIsland({
+        position: new THREE.Vector3(0, 0, 0),
+        radius: Config.centralHub.radius,
+        seed: Config.centralHub.radius * 1000
+      })
     }
 
     // Add decorations to central hub
@@ -98,20 +151,46 @@ export class WorldManager {
    * Add decorations to central hub
    */
   decorateCentralHub() {
-    // Trees around perimeter
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2
-      const radius = 22
+    const hubRadius = Config.centralHub.radius
+
+    // Trees around perimeter - more trees for larger hub
+    for (let i = 0; i < 16; i++) {
+      const angle = (i / 16) * Math.PI * 2
+      const radius = hubRadius * 0.75  // Trees at 75% of hub radius
       const x = Math.cos(angle) * radius
       const z = Math.sin(angle) * radius
 
-      const tree = GeometryUtils.createLowPolyTree(0x228B22, 2)
-      tree.position.set(x, 0, z)
+      const tree = GeometryUtils.createLowPolyTree(0x228B22, 2 + Math.random())
+      tree.position.set(x, 3, z)  // Raised to be on top of terrain
       this.scene.add(tree)
 
       if (this.collisionManager) {
         this.collisionManager.registerCollisionMesh(tree)
       }
+    }
+
+    // Add some inner trees/bushes
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2 + 0.2
+      const radius = hubRadius * 0.4
+      const x = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+
+      const bush = GeometryUtils.createLowPolyBush(0x2E7D32, 1.5)
+      bush.position.set(x, 3, z)
+      this.scene.add(bush)
+    }
+
+    // Add some rocks
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + 0.5
+      const radius = hubRadius * 0.6
+      const x = Math.cos(angle) * radius
+      const z = Math.sin(angle) * radius
+
+      const rock = GeometryUtils.createLowPolyRock(1 + Math.random(), 0x757575)
+      rock.position.set(x, 3, z)
+      this.scene.add(rock)
     }
   }
 
@@ -149,7 +228,7 @@ export class WorldManager {
   }
 
   /**
-   * Create bridges connecting central hub to each island
+   * Create Bifrost-style bridges connecting central hub to each island
    */
   createBridges() {
     const angleStep = (Math.PI * 2) / Config.islands.count
@@ -158,149 +237,256 @@ export class WorldManager {
       const angle = i * angleStep
       const island = this.islands[i]
 
-      this.createBridge(angle, island.position)
+      this.createBifrostBridge(angle, island.position)
     }
 
-    console.log(`Created ${this.bridges.length} bridges`)
+    console.log(`Created ${this.bridges.length} Bifrost bridges`)
   }
 
   /**
-   * Create a single bridge
+   * Create a Bifrost-style rainbow bridge
    * @param {number} angle - Angle from center
    * @param {THREE.Vector3} targetPos - Island position
    */
-  createBridge(angle, targetPos) {
+  createBifrostBridge(angle, targetPos) {
     // Calculate bridge position and dimensions
     const centerRadius = Config.centralHub.radius
     const distanceToIsland = targetPos.length()
     const bridgeLength = distanceToIsland - centerRadius - (Config.islands.baseSize / 2) + 15
+    const bridgeWidth = Config.bridges.width * 2
+    const bridgeHeight = 1.5
 
-    // Main bridge deck geometry (wider and more visible)
-    const deckGeometry = new THREE.BoxGeometry(
-      Config.bridges.width * 1.5,  // Wider for easier walking
-      Config.bridges.height,
-      bridgeLength
-    )
-    const deckMaterial = new THREE.MeshStandardMaterial({
-      color: Config.bridges.color,
-      flatShading: true
-    })
+    // Create the bridge group
+    const bridgeGroup = new THREE.Group()
 
-    const bridgeDeck = new THREE.Mesh(deckGeometry, deckMaterial)
+    // Create custom shader material for rainbow effect
+    const bifrostMaterial = this.createBifrostMaterial()
+    this.bifrostMaterials.push(bifrostMaterial)
 
-    // Position bridge between hub and island, raised above water
+    // Main bridge surface - curved with more segments for smooth appearance
+    const segmentsX = 8
+    const segmentsZ = Math.ceil(bridgeLength / 2)
+    const bridgeGeom = new THREE.PlaneGeometry(bridgeWidth, bridgeLength, segmentsX, segmentsZ)
+
+    // Add slight curve to the bridge (arch shape)
+    const positions = bridgeGeom.attributes.position.array
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i]
+      const z = positions[i + 1]  // In plane geometry, y is the length direction before rotation
+
+      // Subtle arch along the length
+      const archHeight = Math.sin((z / bridgeLength + 0.5) * Math.PI) * 1.5
+
+      // Slight curve across width (like a road)
+      const widthCurve = Math.cos((x / bridgeWidth) * Math.PI) * 0.3
+
+      positions[i + 2] = archHeight + widthCurve
+    }
+    bridgeGeom.computeVertexNormals()
+
+    const bridgeSurface = new THREE.Mesh(bridgeGeom, bifrostMaterial)
+    bridgeSurface.rotation.x = -Math.PI / 2
+    bridgeSurface.receiveShadow = true
+    bridgeGroup.add(bridgeSurface)
+
+    // Add glowing edges
+    this.addBifrostEdges(bridgeGroup, bridgeWidth, bridgeLength)
+
+    // Add energy pillars along the bridge
+    this.addBifrostPillars(bridgeGroup, bridgeWidth, bridgeLength)
+
+    // Position the bridge
     const bridgeDistance = centerRadius + (bridgeLength / 2)
-    const bridgeHeight = 1.5  // Raised above island surface
-    bridgeDeck.position.set(
+    bridgeGroup.position.set(
       Math.cos(angle) * bridgeDistance,
       bridgeHeight,
       Math.sin(angle) * bridgeDistance
     )
-    bridgeDeck.rotation.y = angle
+    bridgeGroup.rotation.y = angle
 
-    bridgeDeck.castShadow = true
-    bridgeDeck.receiveShadow = true
+    this.scene.add(bridgeGroup)
+    this.bridges.push(bridgeGroup)
 
-    this.scene.add(bridgeDeck)
-    this.bridges.push(bridgeDeck)
+    // Create invisible collision mesh for walking
+    const collisionGeom = new THREE.BoxGeometry(bridgeWidth, 0.5, bridgeLength)
+    const collisionMat = new THREE.MeshBasicMaterial({ visible: false })
+    const collisionMesh = new THREE.Mesh(collisionGeom, collisionMat)
+    collisionMesh.position.set(
+      Math.cos(angle) * bridgeDistance,
+      bridgeHeight + 0.75,  // Slightly above surface for better collision
+      Math.sin(angle) * bridgeDistance
+    )
+    collisionMesh.rotation.y = angle
+    this.scene.add(collisionMesh)
 
-    // Register for collision
     if (this.collisionManager) {
-      this.collisionManager.registerCollisionMesh(bridgeDeck)
+      this.collisionManager.registerCollisionMesh(collisionMesh)
     }
-
-    // Add decorative planks on the bridge
-    const plankCount = Math.floor(bridgeLength / 2)
-    for (let i = 0; i < plankCount; i++) {
-      const plankZ = (i / plankCount) * bridgeLength - bridgeLength / 2
-      const plank = GeometryUtils.createBox(
-        Config.bridges.width * 1.3,
-        0.1,
-        0.3,
-        0x654321
-      )
-      plank.position.copy(bridgeDeck.position)
-      plank.position.y += Config.bridges.height / 2 + 0.05
-      plank.position.x += Math.cos(angle) * plankZ
-      plank.position.z += Math.sin(angle) * plankZ
-      plank.rotation.y = angle
-      this.scene.add(plank)
-    }
-
-    // Add support pillars
-    const pillarCount = Math.floor(bridgeLength / 10)
-    for (let i = 1; i < pillarCount; i++) {
-      const pillarZ = (i / pillarCount) * bridgeLength - bridgeLength / 2
-      const pillarHeight = bridgeHeight + 2
-
-      const pillar = GeometryUtils.createCylinder(0.3, 0.4, pillarHeight, 0x654321, 8)
-      pillar.position.set(
-        Math.cos(angle) * (bridgeDistance + pillarZ * Math.sin(angle)),
-        pillarHeight / 2 - 2,
-        Math.sin(angle) * (bridgeDistance + pillarZ * Math.cos(angle))
-      )
-      this.scene.add(pillar)
-
-      if (this.collisionManager) {
-        this.collisionManager.registerCollisionMesh(pillar)
-      }
-    }
-
-    // Add railings
-    this.addBridgeRailings(bridgeDeck, angle, bridgeLength, bridgeHeight)
   }
 
   /**
-   * Add railings to bridge
-   * @param {THREE.Mesh} bridge
-   * @param {number} angle
-   * @param {number} length
-   * @param {number} bridgeHeight
+   * Create the shader material for translucent white bridge
    */
-  addBridgeRailings(bridge, angle, length, bridgeHeight) {
-    const railingHeight = 1.2
-    const railingWidth = 0.15
-    const bridgeWidth = Config.bridges.width * 1.5
+  createBifrostMaterial() {
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        opacity: { value: 0.7 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vPosition;
 
-    // Left railing
-    const leftRailing = GeometryUtils.createBox(
-      railingWidth,
-      railingHeight,
-      length,
-      0x8B4513
-    )
-    leftRailing.position.copy(bridge.position)
-    leftRailing.position.x += Math.cos(angle + Math.PI / 2) * (bridgeWidth / 2)
-    leftRailing.position.z += Math.sin(angle + Math.PI / 2) * (bridgeWidth / 2)
-    leftRailing.position.y = bridgeHeight + railingHeight / 2 + Config.bridges.height / 2
-    leftRailing.rotation.y = angle
-    this.scene.add(leftRailing)
+        void main() {
+          vUv = uv;
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float time;
+        uniform float opacity;
+        varying vec2 vUv;
+        varying vec3 vPosition;
 
-    // Right railing
-    const rightRailing = GeometryUtils.createBox(
-      railingWidth,
-      railingHeight,
-      length,
-      0x8B4513
-    )
-    rightRailing.position.copy(bridge.position)
-    rightRailing.position.x += Math.cos(angle - Math.PI / 2) * (bridgeWidth / 2)
-    rightRailing.position.z += Math.sin(angle - Math.PI / 2) * (bridgeWidth / 2)
-    rightRailing.position.y = bridgeHeight + railingHeight / 2 + Config.bridges.height / 2
-    rightRailing.rotation.y = angle
-    this.scene.add(rightRailing)
+        void main() {
+          // Clean white with subtle energy flow
+          vec3 baseColor = vec3(0.95, 0.97, 1.0);  // Slightly cool white
 
-    // Add crossbeams for visual detail
-    const beamCount = Math.floor(length / 5)
-    for (let i = 0; i < beamCount; i++) {
-      const beamZ = (i / beamCount) * length - length / 2
-      const beam = GeometryUtils.createBox(bridgeWidth, 0.1, 0.15, 0x654321)
-      beam.position.copy(bridge.position)
-      beam.position.y = bridgeHeight + railingHeight * 0.3
-      beam.position.x += Math.cos(angle) * beamZ
-      beam.position.z += Math.sin(angle) * beamZ
-      beam.rotation.y = angle
-      this.scene.add(beam)
+          // Subtle flowing energy lines
+          float flow = vUv.y - time * 0.2;
+          float energyLine = sin(flow * 30.0) * 0.5 + 0.5;
+          energyLine = pow(energyLine, 8.0) * 0.3;  // Sharp, subtle lines
+
+          // Soft edge glow
+          float edgeFade = 1.0 - abs(vUv.x - 0.5) * 2.0;
+          edgeFade = pow(edgeFade, 0.3);
+
+          // Pulse effect
+          float pulse = sin(time * 1.5) * 0.05 + 0.95;
+
+          // Combine effects
+          vec3 finalColor = baseColor * pulse + vec3(energyLine * 0.15);
+
+          // Final opacity with edge fade
+          float finalOpacity = opacity * edgeFade;
+
+          gl_FragColor = vec4(finalColor, finalOpacity);
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.NormalBlending
+    })
+
+    return material
+  }
+
+  /**
+   * Add glowing edges to the bridge
+   */
+  addBifrostEdges(bridgeGroup, width, length) {
+    const edgeGeom = new THREE.BoxGeometry(0.2, 0.4, length)
+
+    // Create clean white edge material
+    const edgeMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.6
+    })
+
+    // Left edge
+    const leftEdge = new THREE.Mesh(edgeGeom, edgeMat)
+    leftEdge.position.set(-width / 2, 0.2, 0)
+    bridgeGroup.add(leftEdge)
+
+    // Right edge
+    const rightEdge = new THREE.Mesh(edgeGeom, edgeMat)
+    rightEdge.position.set(width / 2, 0.2, 0)
+    bridgeGroup.add(rightEdge)
+
+    // Subtle marker orbs along edges
+    const lightCount = Math.floor(length / 20)
+    for (let i = 0; i <= lightCount; i++) {
+      const z = (i / lightCount) * length - length / 2
+
+      // Small white orbs
+      const orbGeom = new THREE.SphereGeometry(0.12, 12, 12)
+      const orbMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.8
+      })
+
+      const leftOrb = new THREE.Mesh(orbGeom, orbMat)
+      leftOrb.position.set(-width / 2, 0.5, z)
+      bridgeGroup.add(leftOrb)
+
+      const rightOrb = new THREE.Mesh(orbGeom, orbMat)
+      rightOrb.position.set(width / 2, 0.5, z)
+      bridgeGroup.add(rightOrb)
+    }
+  }
+
+  /**
+   * Add pillars along the bridge
+   */
+  addBifrostPillars(bridgeGroup, width, length) {
+    const pillarCount = Math.floor(length / 25)
+
+    for (let i = 0; i <= pillarCount; i++) {
+      const z = (i / pillarCount) * length - length / 2
+
+      // Create clean pillar
+      const pillarHeight = 2.5
+      const pillarGeom = new THREE.CylinderGeometry(0.08, 0.15, pillarHeight, 8)
+      const pillarMat = new THREE.MeshStandardMaterial({
+        color: 0xeeeeee,
+        transparent: true,
+        opacity: 0.7,
+        roughness: 0.3,
+        metalness: 0.2
+      })
+
+      // Left pillar
+      const leftPillar = new THREE.Mesh(pillarGeom, pillarMat)
+      leftPillar.position.set(-width / 2 - 0.15, pillarHeight / 2, z)
+      bridgeGroup.add(leftPillar)
+
+      // Right pillar
+      const rightPillar = new THREE.Mesh(pillarGeom, pillarMat)
+      rightPillar.position.set(width / 2 + 0.15, pillarHeight / 2, z)
+      bridgeGroup.add(rightPillar)
+
+      // Simple sphere tops
+      const topGeom = new THREE.SphereGeometry(0.15, 12, 12)
+      const topMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.9
+      })
+
+      const leftTop = new THREE.Mesh(topGeom, topMat)
+      leftTop.position.set(-width / 2 - 0.15, pillarHeight + 0.1, z)
+      bridgeGroup.add(leftTop)
+
+      const rightTop = new THREE.Mesh(topGeom, topMat)
+      rightTop.position.set(width / 2 + 0.15, pillarHeight + 0.1, z)
+      bridgeGroup.add(rightTop)
+    }
+  }
+
+  /**
+   * Update Bifrost bridge animation
+   * @param {number} delta
+   */
+  updateBifrost(delta) {
+    this.bifrostTime += delta
+
+    // Update all Bifrost materials
+    for (const material of this.bifrostMaterials) {
+      material.uniforms.time.value = this.bifrostTime
     }
   }
 
