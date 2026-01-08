@@ -38,13 +38,15 @@ export class CollisionManager {
 
   /**
    * Register island for terrain height lookup
-   * @param {Object} island - Island object with position and radius
+   * @param {Object} island - Island object with position, radius, and optional getTerrainHeightAt method
    */
   registerIsland(island) {
     this.islands.push({
       position: island.position.clone(),
       radius: island.radius || Config.islands.baseSize / 2,
-      seed: island.seed || (island.position.x * 1000 + island.position.z)
+      seed: island.seed || (island.position.x * 1000 + island.position.z),
+      // Store reference to the island's custom height function if it exists
+      getTerrainHeightAt: island.getTerrainHeightAt ? island.getTerrainHeightAt.bind(island) : null
     })
   }
 
@@ -137,6 +139,7 @@ export class CollisionManager {
   /**
    * Get terrain height directly using the terrain generation function
    * This bypasses raycasting issues
+   * Uses island's custom getTerrainHeightAt() method if available for accurate heights
    * @param {THREE.Vector3} position
    * @returns {number|null}
    */
@@ -150,14 +153,23 @@ export class CollisionManager {
       if (height > -5) return height
     }
 
-    // Check each island
+    // Check each island - use custom height function if available
     for (const island of this.islands) {
       const localX = position.x - island.position.x
       const localZ = position.z - island.position.z
       const distFromIsland = Math.sqrt(localX * localX + localZ * localZ)
 
       if (distFromIsland <= island.radius) {
-        const height = GeometryUtils.getTerrainHeight(localX, localZ, island.radius, island.seed)
+        let height
+
+        // Use island's custom height function if available (e.g., for flat basketball arena)
+        if (island.getTerrainHeightAt) {
+          height = island.getTerrainHeightAt(localX, localZ)
+        } else {
+          // Fall back to default terrain generation
+          height = GeometryUtils.getTerrainHeight(localX, localZ, island.radius, island.seed)
+        }
+
         if (height > -5) {
           return height + island.position.y
         }

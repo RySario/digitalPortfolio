@@ -240,24 +240,34 @@ export class WorldManager {
       const angle = i * angleStep
       const island = this.islands[i]
 
-      this.createBifrostBridge(angle, island.position)
+      // Get the actual island radius (different islands have different sizes)
+      const islandRadius = island.radius || Config.islands.baseSize / 2
+
+      this.createBifrostBridge(angle, island.position, islandRadius)
     }
 
     console.log(`Created ${this.bridges.length} Bifrost bridges`)
   }
 
   /**
-   * Create a Bifrost-style rainbow bridge
+   * Create a Bifrost-style rainbow bridge with old-timey hump
    * @param {number} angle - Angle from center
    * @param {THREE.Vector3} targetPos - Island position
+   * @param {number} islandRadius - Actual radius of the target island
    */
-  createBifrostBridge(angle, targetPos) {
+  createBifrostBridge(angle, targetPos, islandRadius) {
     // Calculate bridge position and dimensions
     const centerRadius = Config.centralHub.radius
     const distanceToIsland = targetPos.length()
-    const bridgeLength = distanceToIsland - centerRadius - (Config.islands.baseSize / 2) + 15
+
+    // Calculate bridge length to properly connect hub edge to island edge
+    // Add small overlap on each end for smooth connection
+    const hubOverlap = 3
+    const islandOverlap = 5
+    const bridgeLength = distanceToIsland - centerRadius - islandRadius + hubOverlap + islandOverlap
     const bridgeWidth = Config.bridges.width * 2
-    const bridgeHeight = 1.5
+    const bridgeHeight = 2.0  // Slightly higher base
+    const humpHeight = 3.5    // Height of the arch in the middle
 
     // Create the bridge group
     const bridgeGroup = new THREE.Group()
@@ -266,26 +276,37 @@ export class WorldManager {
     const bifrostMaterial = this.createBifrostMaterial()
     this.bifrostMaterials.push(bifrostMaterial)
 
-    // Main bridge surface - completely flat and straight for easy walking
+    // Main bridge surface with old-timey hump (arch)
     const segmentsX = 4
-    const segmentsZ = Math.ceil(bridgeLength / 4)
+    const segmentsZ = Math.ceil(bridgeLength / 2)  // More segments for smooth curve
     const bridgeGeom = new THREE.PlaneGeometry(bridgeWidth, bridgeLength, segmentsX, segmentsZ)
 
-    // No curve - keep bridge completely flat for easy traversal
+    // Add arch/hump to the bridge - old-timey style
+    const positions = bridgeGeom.attributes.position.array
+    for (let i = 0; i < positions.length; i += 3) {
+      const z = positions[i + 1]  // Y in plane geometry becomes Z after rotation
+      const normalizedZ = z / (bridgeLength / 2)  // -1 to 1 along bridge length
+      // Parabolic arch: highest in middle, tapering to ends
+      const archHeight = humpHeight * (1 - normalizedZ * normalizedZ)
+      positions[i + 2] = archHeight  // Z becomes Y (height) after rotation
+    }
+    bridgeGeom.attributes.position.needsUpdate = true
+    bridgeGeom.computeVertexNormals()
 
     const bridgeSurface = new THREE.Mesh(bridgeGeom, bifrostMaterial)
     bridgeSurface.rotation.x = -Math.PI / 2
     bridgeSurface.receiveShadow = true
     bridgeGroup.add(bridgeSurface)
 
-    // Add glowing edges
-    this.addBifrostEdges(bridgeGroup, bridgeWidth, bridgeLength)
+    // Add glowing edges with hump
+    this.addBifrostEdges(bridgeGroup, bridgeWidth, bridgeLength, humpHeight)
 
     // Add energy pillars along the bridge
-    this.addBifrostPillars(bridgeGroup, bridgeWidth, bridgeLength)
+    this.addBifrostPillars(bridgeGroup, bridgeWidth, bridgeLength, humpHeight)
 
-    // Position the bridge
-    const bridgeDistance = centerRadius + (bridgeLength / 2)
+    // Position the bridge - center it between hub and island
+    const bridgeStartDist = centerRadius - hubOverlap
+    const bridgeDistance = bridgeStartDist + (bridgeLength / 2)
     bridgeGroup.position.set(
       Math.cos(angle) * bridgeDistance,
       bridgeHeight,
@@ -296,20 +317,31 @@ export class WorldManager {
     this.scene.add(bridgeGroup)
     this.bridges.push(bridgeGroup)
 
-    // Create invisible collision mesh for walking - flat and straight
-    const collisionGeom = new THREE.BoxGeometry(bridgeWidth, 1, bridgeLength)
-    const collisionMat = new THREE.MeshBasicMaterial({ visible: false })
-    const collisionMesh = new THREE.Mesh(collisionGeom, collisionMat)
-    collisionMesh.position.set(
-      Math.cos(angle) * bridgeDistance,
-      bridgeHeight + 0.5,  // Aligned with flat bridge surface
-      Math.sin(angle) * bridgeDistance
-    )
-    collisionMesh.rotation.y = angle
-    this.scene.add(collisionMesh)
+    // Create multiple collision segments along the arched bridge for proper walking
+    const collisionSegments = 8
+    for (let seg = 0; seg < collisionSegments; seg++) {
+      const segmentLength = bridgeLength / collisionSegments
+      const segZ = (seg + 0.5 - collisionSegments / 2) * segmentLength
+      const normalizedZ = segZ / (bridgeLength / 2)
+      const segHeight = humpHeight * (1 - normalizedZ * normalizedZ)
 
-    if (this.collisionManager) {
-      this.collisionManager.registerCollisionMesh(collisionMesh)
+      const collisionGeom = new THREE.BoxGeometry(bridgeWidth, 1.5, segmentLength + 1)
+      const collisionMat = new THREE.MeshBasicMaterial({ visible: false })
+      const collisionMesh = new THREE.Mesh(collisionGeom, collisionMat)
+
+      // Position relative to bridge center
+      const segWorldDist = bridgeDistance + segZ * Math.cos(0)  // Along the bridge direction
+      collisionMesh.position.set(
+        Math.cos(angle) * bridgeDistance + Math.cos(angle + Math.PI/2) * 0 + Math.cos(angle) * segZ,
+        bridgeHeight + segHeight + 0.5,
+        Math.sin(angle) * bridgeDistance + Math.sin(angle + Math.PI/2) * 0 + Math.sin(angle) * segZ
+      )
+      collisionMesh.rotation.y = angle
+      this.scene.add(collisionMesh)
+
+      if (this.collisionManager) {
+        this.collisionManager.registerCollisionMesh(collisionMesh)
+      }
     }
   }
 
@@ -373,11 +405,9 @@ export class WorldManager {
   }
 
   /**
-   * Add glowing edges to the bridge
+   * Add glowing edges to the bridge following the hump
    */
-  addBifrostEdges(bridgeGroup, width, length) {
-    const edgeGeom = new THREE.BoxGeometry(0.2, 0.4, length)
-
+  addBifrostEdges(bridgeGroup, width, length, humpHeight = 0) {
     // Create clean white edge material
     const edgeMat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
@@ -385,23 +415,38 @@ export class WorldManager {
       opacity: 0.6
     })
 
-    // Left edge
-    const leftEdge = new THREE.Mesh(edgeGeom, edgeMat)
-    leftEdge.position.set(-width / 2, 0.2, 0)
-    bridgeGroup.add(leftEdge)
+    // Create edge segments that follow the arch
+    const edgeSegments = 16
+    for (let i = 0; i < edgeSegments; i++) {
+      const z1 = (i / edgeSegments) * length - length / 2
+      const z2 = ((i + 1) / edgeSegments) * length - length / 2
+      const zMid = (z1 + z2) / 2
+      const normalizedZ = zMid / (length / 2)
+      const segHeight = humpHeight * (1 - normalizedZ * normalizedZ)
+      const segLength = length / edgeSegments + 0.2
 
-    // Right edge
-    const rightEdge = new THREE.Mesh(edgeGeom, edgeMat)
-    rightEdge.position.set(width / 2, 0.2, 0)
-    bridgeGroup.add(rightEdge)
+      const edgeGeom = new THREE.BoxGeometry(0.2, 0.4, segLength)
 
-    // Subtle marker orbs along edges
-    const lightCount = Math.floor(length / 20)
+      // Left edge segment
+      const leftEdge = new THREE.Mesh(edgeGeom, edgeMat)
+      leftEdge.position.set(-width / 2, segHeight + 0.2, zMid)
+      bridgeGroup.add(leftEdge)
+
+      // Right edge segment
+      const rightEdge = new THREE.Mesh(edgeGeom.clone(), edgeMat)
+      rightEdge.position.set(width / 2, segHeight + 0.2, zMid)
+      bridgeGroup.add(rightEdge)
+    }
+
+    // Subtle marker orbs along edges following the arch
+    const lightCount = Math.floor(length / 15)
     for (let i = 0; i <= lightCount; i++) {
       const z = (i / lightCount) * length - length / 2
+      const normalizedZ = z / (length / 2)
+      const orbHeight = humpHeight * (1 - normalizedZ * normalizedZ)
 
       // Small white orbs
-      const orbGeom = new THREE.SphereGeometry(0.12, 12, 12)
+      const orbGeom = new THREE.SphereGeometry(0.15, 12, 12)
       const orbMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
@@ -409,23 +454,25 @@ export class WorldManager {
       })
 
       const leftOrb = new THREE.Mesh(orbGeom, orbMat)
-      leftOrb.position.set(-width / 2, 0.5, z)
+      leftOrb.position.set(-width / 2, orbHeight + 0.5, z)
       bridgeGroup.add(leftOrb)
 
-      const rightOrb = new THREE.Mesh(orbGeom, orbMat)
-      rightOrb.position.set(width / 2, 0.5, z)
+      const rightOrb = new THREE.Mesh(orbGeom.clone(), orbMat)
+      rightOrb.position.set(width / 2, orbHeight + 0.5, z)
       bridgeGroup.add(rightOrb)
     }
   }
 
   /**
-   * Add pillars along the bridge
+   * Add pillars along the bridge following the hump
    */
-  addBifrostPillars(bridgeGroup, width, length) {
-    const pillarCount = Math.floor(length / 25)
+  addBifrostPillars(bridgeGroup, width, length, humpHeight = 0) {
+    const pillarCount = Math.floor(length / 20)
 
     for (let i = 0; i <= pillarCount; i++) {
       const z = (i / pillarCount) * length - length / 2
+      const normalizedZ = z / (length / 2)
+      const baseHeight = humpHeight * (1 - normalizedZ * normalizedZ)
 
       // Create clean pillar
       const pillarHeight = 2.5
@@ -438,14 +485,14 @@ export class WorldManager {
         metalness: 0.2
       })
 
-      // Left pillar
+      // Left pillar - positioned on the arched surface
       const leftPillar = new THREE.Mesh(pillarGeom, pillarMat)
-      leftPillar.position.set(-width / 2 - 0.15, pillarHeight / 2, z)
+      leftPillar.position.set(-width / 2 - 0.15, baseHeight + pillarHeight / 2, z)
       bridgeGroup.add(leftPillar)
 
       // Right pillar
-      const rightPillar = new THREE.Mesh(pillarGeom, pillarMat)
-      rightPillar.position.set(width / 2 + 0.15, pillarHeight / 2, z)
+      const rightPillar = new THREE.Mesh(pillarGeom.clone(), pillarMat)
+      rightPillar.position.set(width / 2 + 0.15, baseHeight + pillarHeight / 2, z)
       bridgeGroup.add(rightPillar)
 
       // Simple sphere tops
@@ -457,11 +504,11 @@ export class WorldManager {
       })
 
       const leftTop = new THREE.Mesh(topGeom, topMat)
-      leftTop.position.set(-width / 2 - 0.15, pillarHeight + 0.1, z)
+      leftTop.position.set(-width / 2 - 0.15, baseHeight + pillarHeight + 0.1, z)
       bridgeGroup.add(leftTop)
 
-      const rightTop = new THREE.Mesh(topGeom, topMat)
-      rightTop.position.set(width / 2 + 0.15, pillarHeight + 0.1, z)
+      const rightTop = new THREE.Mesh(topGeom.clone(), topMat)
+      rightTop.position.set(width / 2 + 0.15, baseHeight + pillarHeight + 0.1, z)
       bridgeGroup.add(rightTop)
     }
   }

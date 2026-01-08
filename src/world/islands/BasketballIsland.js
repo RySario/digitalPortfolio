@@ -38,13 +38,14 @@ export class BasketballIsland extends Island {
 
   /**
    * Override terrain creation to make a flat arena platform
+   * IMPORTANT: The entire arena area is completely flat to allow walking
    */
   createTerrain() {
     // Much larger island for the arena
     this.radius = 85
     this.seed = this.radius * 1000
 
-    // Create a mostly flat circular platform for the arena - high poly for smooth edges
+    // Create a completely flat circular platform for the arena - high poly for smooth edges
     const segments = 96
     const geometry = new THREE.BufferGeometry()
 
@@ -53,12 +54,12 @@ export class BasketballIsland extends Island {
     const uvs = []
     const indices = []
 
-    // Center vertex
+    // Center vertex - completely flat at floor height
     vertices.push(0, this.floorHeight, 0)
     normals.push(0, 1, 0)
     uvs.push(0.5, 0.5)
 
-    // Concentric rings with flat center and sloped edges - high poly
+    // Concentric rings - COMPLETELY FLAT inside arena, only slope at very edge
     const rings = 48
     for (let ring = 1; ring <= rings; ring++) {
       const ringRadius = (ring / rings) * this.radius
@@ -68,13 +69,14 @@ export class BasketballIsland extends Island {
         const x = Math.cos(angle) * ringRadius
         const z = Math.sin(angle) * ringRadius
 
-        // Flat in the center (arena area), then slope down at edges
+        // Keep completely flat until we're past the arena walls
         const normalizedDist = ringRadius / this.radius
         let y = this.floorHeight
 
-        if (normalizedDist > 0.75) {
-          // Slope down at edges
-          const edgeFactor = (normalizedDist - 0.75) / 0.25
+        // Only slope down at the very outer edge (past 85% of radius)
+        // This ensures the entire arena area (radius 60) is completely flat
+        if (normalizedDist > 0.85) {
+          const edgeFactor = (normalizedDist - 0.85) / 0.15
           y = this.floorHeight - edgeFactor * 3
         }
 
@@ -174,20 +176,64 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Get terrain height - flat for arena area
+   * Get terrain height - Returns correct walking surface height
+   * Court surface is higher than the concrete floor
+   * This is critical for player walking - no hills inside the arena!
    */
   getTerrainHeightAt(localX, localZ) {
     const dist = Math.sqrt(localX * localX + localZ * localZ)
     const normalizedDist = dist / this.radius
 
+    // Outside island
     if (normalizedDist > 1) return -10
 
-    if (normalizedDist > 0.75) {
-      const edgeFactor = (normalizedDist - 0.75) / 0.25
+    // Only slope down at the very outer edge (past 90% of radius)
+    if (normalizedDist > 0.90) {
+      const edgeFactor = (normalizedDist - 0.90) / 0.10
       return this.floorHeight - edgeFactor * 3
     }
 
-    return this.floorHeight
+    // Check if in the single entrance tunnel (at positive X, near Z=0)
+    const tunnelHalfWidth = 4
+    const tunnelFloorHeight = this.floorHeight + 0.3
+
+    // Single tunnel at angle 0 (positive X direction, through the arena wall)
+    if (Math.abs(localZ) < tunnelHalfWidth && localX > (this.arenaRadius - 8) && localX < (this.arenaRadius + 10)) {
+      return tunnelFloorHeight
+    }
+
+    // Check if inside the basketball court area (hardwood surface)
+    const courtLength = 28 * this.courtScale / 2 + 3  // Half length plus buffer
+    const courtWidth = 15 * this.courtScale / 2 + 3   // Half width plus buffer
+
+    if (Math.abs(localX) < courtLength && Math.abs(localZ) < courtWidth) {
+      // On the court - return hardwood surface height
+      return this.floorHeight + 0.46  // Court surface + lines height
+    }
+
+    // Courtside area (between court and seating)
+    if (dist < 32) {
+      return this.floorHeight + 0.46  // Same as court level
+    }
+
+    // Check if in lower bowl seating area (walkable slopes)
+    const seatingStartRadius = 32
+    const seatingEndRadius = 55
+    if (dist >= seatingStartRadius && dist < seatingEndRadius) {
+      // Calculate smooth slope for walkable seating
+      const seatingProgress = (dist - seatingStartRadius) / (seatingEndRadius - seatingStartRadius)
+      const maxSeatHeight = 14.4  // 8 tiers * 1.8 height
+      const seatHeight = this.floorHeight + 1 + seatingProgress * maxSeatHeight
+      return seatHeight
+    }
+
+    // Club level area
+    if (dist >= seatingEndRadius && dist < this.arenaRadius) {
+      return this.floorHeight + 16  // Club level height
+    }
+
+    // Default arena floor
+    return this.floorHeight + 0.4
   }
 
   createDecorations() {
@@ -305,16 +351,19 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create court line markings
+   * Create accurate NBA court line markings
+   * NBA court: 94ft x 50ft, scaled proportionally
    */
   createCourtLines(courtLength, courtWidth) {
     const lineY = this.floorHeight + 0.46
     const lineMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF })
+    const lineWidth = 0.1  // Slightly thicker lines for visibility
 
-    // Boundary lines
-    const lineWidth = 0.08
+    // Scale factor: courtLength maps to 94ft NBA court
+    const scale = courtLength / 94
 
-    // Sidelines
+    // === BOUNDARY LINES ===
+    // Sidelines (long sides)
     const sideGeom = new THREE.BoxGeometry(courtLength, 0.02, lineWidth)
     const side1 = new THREE.Mesh(sideGeom, lineMat)
     side1.position.set(0, lineY, courtWidth / 2)
@@ -324,7 +373,7 @@ export class BasketballIsland extends Island {
     side2.position.set(0, lineY, -courtWidth / 2)
     this.group.add(side2)
 
-    // Baselines
+    // Baselines/End lines (short sides)
     const baseGeom = new THREE.BoxGeometry(lineWidth, 0.02, courtWidth)
     const base1 = new THREE.Mesh(baseGeom, lineMat)
     base1.position.set(courtLength / 2, lineY, 0)
@@ -334,105 +383,252 @@ export class BasketballIsland extends Island {
     base2.position.set(-courtLength / 2, lineY, 0)
     this.group.add(base2)
 
-    // Half-court line
+    // === HALF-COURT LINE ===
     const halfGeom = new THREE.BoxGeometry(lineWidth, 0.02, courtWidth)
     const halfLine = new THREE.Mesh(halfGeom, lineMat)
     halfLine.position.set(0, lineY, 0)
     this.group.add(halfLine)
 
-    // Center circle
-    const circleRadius = 1.8
-    const segments = 36
-    for (let i = 0; i < segments; i++) {
-      const angle = (i / segments) * Math.PI * 2
-      const segGeom = new THREE.BoxGeometry(lineWidth, 0.02, 0.35)
-      const seg = new THREE.Mesh(segGeom, lineMat)
-      seg.position.set(
-        Math.cos(angle) * circleRadius,
-        lineY,
-        Math.sin(angle) * circleRadius
-      )
-      seg.rotation.y = angle + Math.PI / 2
-      this.group.add(seg)
-    }
+    // === CENTER CIRCLE (6ft radius in NBA = 6 * scale) ===
+    const centerCircleRadius = 6 * scale
+    this.createCircle(0, 0, centerCircleRadius, lineY, lineMat, 48)
 
-    // Three-point arcs
-    this.createThreePointArc(courtLength / 2, lineY, lineMat, 1)
-    this.createThreePointArc(-courtLength / 2, lineY, lineMat, -1)
+    // === THREE-POINT LINES ===
+    this.createThreePointLine(courtLength / 2, lineY, lineMat, 1, scale, courtWidth)
+    this.createThreePointLine(-courtLength / 2, lineY, lineMat, -1, scale, courtWidth)
 
-    // Free throw lines
-    this.createFreeThrowArea(courtLength / 2 - 5.8, lineY, lineMat)
-    this.createFreeThrowArea(-courtLength / 2 + 5.8, lineY, lineMat)
-  }
+    // === FREE THROW AREAS (THE KEY) ===
+    this.createFreeThrowArea(courtLength / 2, lineY, lineMat, 1, scale)
+    this.createFreeThrowArea(-courtLength / 2, lineY, lineMat, -1, scale)
 
-  createThreePointArc(baseX, y, material, direction) {
-    const arcRadius = 7.24
-    const arcSegments = 18
-
-    // Arc portion
-    for (let i = 0; i <= arcSegments; i++) {
-      const angle = (i / arcSegments) * Math.PI - Math.PI / 2
-      const segGeom = new THREE.BoxGeometry(0.08, 0.02, 0.5)
-      const seg = new THREE.Mesh(segGeom, material)
-
-      const x = baseX + Math.cos(angle) * arcRadius * direction * -1
-      const z = Math.sin(angle) * arcRadius
-
-      seg.position.set(x, y, z)
-      seg.rotation.y = angle * direction
-      this.group.add(seg)
-    }
-
-    // Corner straight sections
-    const cornerGeom = new THREE.BoxGeometry(4.5, 0.02, 0.08)
-    const corner1 = new THREE.Mesh(cornerGeom, material)
-    corner1.position.set(baseX - 2.25 * direction, y, 7.24)
-    this.group.add(corner1)
-
-    const corner2 = new THREE.Mesh(cornerGeom.clone(), material)
-    corner2.position.set(baseX - 2.25 * direction, y, -7.24)
-    this.group.add(corner2)
-  }
-
-  createFreeThrowArea(centerX, y, material) {
-    // Free throw line
-    const ftLineGeom = new THREE.BoxGeometry(0.08, 0.02, 3.6)
-    const ftLine = new THREE.Mesh(ftLineGeom, material)
-    ftLine.position.set(centerX, y, 0)
-    this.group.add(ftLine)
-
-    // Lane lines
-    const laneLength = 5.8
-    const laneGeom = new THREE.BoxGeometry(laneLength, 0.02, 0.08)
-
-    const lane1 = new THREE.Mesh(laneGeom, material)
-    lane1.position.set(centerX + (centerX > 0 ? -laneLength/2 : laneLength/2), y, 1.8)
-    this.group.add(lane1)
-
-    const lane2 = new THREE.Mesh(laneGeom.clone(), material)
-    lane2.position.set(centerX + (centerX > 0 ? -laneLength/2 : laneLength/2), y, -1.8)
-    this.group.add(lane2)
+    // === RESTRICTED AREAS (4ft arc under basket) ===
+    this.createRestrictedArea(courtLength / 2, lineY, lineMat, 1, scale)
+    this.createRestrictedArea(-courtLength / 2, lineY, lineMat, -1, scale)
   }
 
   /**
-   * Create painted key areas
+   * Create a circle line (for center circle, free throw circles)
+   */
+  createCircle(cx, cz, radius, y, material, segments = 48) {
+    const lineWidth = 0.1
+    for (let i = 0; i < segments; i++) {
+      const angle1 = (i / segments) * Math.PI * 2
+      const angle2 = ((i + 1) / segments) * Math.PI * 2
+      const midAngle = (angle1 + angle2) / 2
+
+      const segLength = (2 * Math.PI * radius) / segments + 0.05
+      const segGeom = new THREE.BoxGeometry(lineWidth, 0.02, segLength)
+      const seg = new THREE.Mesh(segGeom, material)
+
+      seg.position.set(
+        cx + Math.cos(midAngle) * radius,
+        y,
+        cz + Math.sin(midAngle) * radius
+      )
+      seg.rotation.y = midAngle + Math.PI / 2
+      this.group.add(seg)
+    }
+  }
+
+  /**
+   * Create accurate NBA three-point line
+   * Arc is 23'9" (23.75ft) from basket at top, 22ft in corners
+   * Corner sections are 3ft from sideline
+   */
+  createThreePointLine(baselineX, y, material, direction, scale, courtWidth) {
+    const lineWidth = 0.1
+
+    // NBA three-point distances
+    const arcRadius = 23.75 * scale  // 23'9" arc radius from basket center
+    const cornerDist = 22 * scale    // 22ft in corners
+    const basketOffset = 4.75 * scale // Basket is 4.75ft from baseline (center of rim)
+
+    // The three-point line in corners is 3ft from sideline
+    const cornerWidth = 3 * scale
+    const sidelineZ = courtWidth / 2
+
+    // Position where basket is (baseline minus offset toward center)
+    const basketX = baselineX - (basketOffset * direction)
+
+    // Corner straight sections run from baseline to where arc starts
+    // Arc starts when distance from basket equals arcRadius at the corner distance from sideline
+    const cornerZ = sidelineZ - cornerWidth
+
+    // Calculate where the arc meets the corner straight section
+    // The corner section is at z = cornerZ, and extends from baseline toward center
+    // Arc equation: (x - basketX)^2 + z^2 = arcRadius^2
+    // At z = cornerZ: x = basketX + sqrt(arcRadius^2 - cornerZ^2)
+    const arcStartX = basketX - direction * Math.sqrt(arcRadius * arcRadius - cornerZ * cornerZ)
+    const cornerLength = Math.abs(baselineX - arcStartX)
+
+    // Corner straight sections (both sides)
+    if (cornerLength > 0) {
+      const cornerGeom = new THREE.BoxGeometry(cornerLength, 0.02, lineWidth)
+
+      const corner1 = new THREE.Mesh(cornerGeom, material)
+      corner1.position.set(baselineX - (cornerLength / 2) * direction, y, cornerZ)
+      this.group.add(corner1)
+
+      const corner2 = new THREE.Mesh(cornerGeom.clone(), material)
+      corner2.position.set(baselineX - (cornerLength / 2) * direction, y, -cornerZ)
+      this.group.add(corner2)
+    }
+
+    // Arc portion - from one corner to the other
+    const arcSegments = 28
+    const startAngle = Math.asin(cornerZ / arcRadius)
+    const endAngle = Math.PI - startAngle
+
+    for (let i = 0; i < arcSegments; i++) {
+      const angle1 = startAngle + (i / arcSegments) * (endAngle - startAngle)
+      const angle2 = startAngle + ((i + 1) / arcSegments) * (endAngle - startAngle)
+      const midAngle = (angle1 + angle2) / 2
+
+      const segLength = (arcRadius * (endAngle - startAngle)) / arcSegments + 0.05
+      const segGeom = new THREE.BoxGeometry(lineWidth, 0.02, segLength)
+      const seg = new THREE.Mesh(segGeom, material)
+
+      const x = basketX - direction * Math.cos(midAngle) * arcRadius
+      const z = Math.sin(midAngle) * arcRadius
+
+      seg.position.set(x, y, z)
+      seg.rotation.y = midAngle * direction + Math.PI / 2
+      this.group.add(seg)
+    }
+  }
+
+  /**
+   * Create accurate NBA free throw area (the key/paint)
+   * Lane is 16ft wide, 19ft from baseline to free throw line
+   * Free throw line is 15ft from backboard
+   */
+  createFreeThrowArea(baselineX, y, material, direction, scale) {
+    const lineWidth = 0.1
+
+    // NBA key dimensions
+    const laneWidth = 16 * scale / 2  // Half width (8ft each side from center)
+    const keyLength = 19 * scale      // 19ft from baseline to free throw line
+    const freeThrowCircleRadius = 6 * scale  // 6ft radius free throw circle
+
+    // Free throw line position (19ft from baseline toward center court)
+    const ftLineX = baselineX - direction * keyLength
+
+    // === FREE THROW LINE ===
+    const ftLineGeom = new THREE.BoxGeometry(lineWidth, 0.02, laneWidth * 2)
+    const ftLine = new THREE.Mesh(ftLineGeom, material)
+    ftLine.position.set(ftLineX, y, 0)
+    this.group.add(ftLine)
+
+    // === LANE LINES (sides of the key) ===
+    const laneGeom = new THREE.BoxGeometry(keyLength, 0.02, lineWidth)
+
+    const lane1 = new THREE.Mesh(laneGeom, material)
+    lane1.position.set(baselineX - direction * keyLength / 2, y, laneWidth)
+    this.group.add(lane1)
+
+    const lane2 = new THREE.Mesh(laneGeom.clone(), material)
+    lane2.position.set(baselineX - direction * keyLength / 2, y, -laneWidth)
+    this.group.add(lane2)
+
+    // === FREE THROW CIRCLE (top half solid, facing center court) ===
+    const ftCircleSegments = 24
+    for (let i = 0; i < ftCircleSegments / 2; i++) {
+      // Top half of circle (facing away from basket)
+      const angle1 = (i / ftCircleSegments) * Math.PI * 2 + (direction > 0 ? 0 : Math.PI)
+      const angle2 = ((i + 1) / ftCircleSegments) * Math.PI * 2 + (direction > 0 ? 0 : Math.PI)
+      const midAngle = (angle1 + angle2) / 2
+
+      const segLength = (2 * Math.PI * freeThrowCircleRadius) / ftCircleSegments + 0.05
+      const segGeom = new THREE.BoxGeometry(lineWidth, 0.02, segLength)
+      const seg = new THREE.Mesh(segGeom, material)
+
+      seg.position.set(
+        ftLineX + Math.cos(midAngle) * freeThrowCircleRadius,
+        y,
+        Math.sin(midAngle) * freeThrowCircleRadius
+      )
+      seg.rotation.y = midAngle + Math.PI / 2
+      this.group.add(seg)
+    }
+
+    // === HASH MARKS on the lane (block marks) ===
+    // NBA has 4 hash marks on each side of the key
+    const hashPositions = [7, 11, 14, 17]  // Feet from baseline
+    const hashLength = 0.5 * scale
+
+    hashPositions.forEach(pos => {
+      const hashX = baselineX - direction * pos * scale
+      const hashGeom = new THREE.BoxGeometry(lineWidth, 0.02, hashLength)
+
+      // Outside the lane on both sides
+      const hash1 = new THREE.Mesh(hashGeom, material)
+      hash1.position.set(hashX, y, laneWidth + hashLength / 2)
+      this.group.add(hash1)
+
+      const hash2 = new THREE.Mesh(hashGeom.clone(), material)
+      hash2.position.set(hashX, y, -laneWidth - hashLength / 2)
+      this.group.add(hash2)
+    })
+  }
+
+  /**
+   * Create restricted area arc (4ft radius under basket)
+   */
+  createRestrictedArea(baselineX, y, material, direction, scale) {
+    const lineWidth = 0.1
+    const arcRadius = 4 * scale  // 4ft radius
+    const basketOffset = 4.75 * scale  // Basket center from baseline
+
+    // Center of restricted area is at basket location
+    const centerX = baselineX - direction * basketOffset
+
+    // Semi-circle arc
+    const segments = 16
+    for (let i = 0; i < segments; i++) {
+      const angle1 = (i / segments) * Math.PI + (direction > 0 ? Math.PI / 2 : -Math.PI / 2)
+      const angle2 = ((i + 1) / segments) * Math.PI + (direction > 0 ? Math.PI / 2 : -Math.PI / 2)
+      const midAngle = (angle1 + angle2) / 2
+
+      const segLength = (Math.PI * arcRadius) / segments + 0.03
+      const segGeom = new THREE.BoxGeometry(lineWidth, 0.02, segLength)
+      const seg = new THREE.Mesh(segGeom, material)
+
+      seg.position.set(
+        centerX + Math.cos(midAngle) * arcRadius,
+        y,
+        Math.sin(midAngle) * arcRadius
+      )
+      seg.rotation.y = midAngle + Math.PI / 2
+      this.group.add(seg)
+    }
+  }
+
+  /**
+   * Create painted key areas (the paint) - accurate NBA dimensions
+   * Key is 16ft wide x 19ft long
    */
   createPaintedAreas(courtLength, courtWidth) {
     const paintY = this.floorHeight + 0.39
+    const scale = courtLength / 94  // Same scale as court lines
 
-    // Left paint
-    const paintGeom = new THREE.BoxGeometry(5.8, 0.02, 3.6)
+    // NBA key dimensions
+    const keyWidth = 16 * scale   // 16ft wide
+    const keyLength = 19 * scale  // 19ft from baseline to free throw line
+
+    const paintGeom = new THREE.BoxGeometry(keyLength, 0.02, keyWidth)
     const paintMat = new THREE.MeshStandardMaterial({
       color: this.kingsColors.purple,
       roughness: 0.6
     })
 
+    // Left paint (positioned from baseline inward)
     const leftPaint = new THREE.Mesh(paintGeom, paintMat)
-    leftPaint.position.set(-courtLength / 2 + 2.9, paintY, 0)
+    leftPaint.position.set(-courtLength / 2 + keyLength / 2, paintY, 0)
     this.group.add(leftPaint)
 
+    // Right paint
     const rightPaint = new THREE.Mesh(paintGeom.clone(), paintMat)
-    rightPaint.position.set(courtLength / 2 - 2.9, paintY, 0)
+    rightPaint.position.set(courtLength / 2 - keyLength / 2, paintY, 0)
     this.group.add(rightPaint)
   }
 
@@ -484,30 +680,36 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create professional hoops
+   * Create professional hoops - properly proportioned for the avatar
+   * NBA hoops are 10 feet high; avatar is ~2.5 units (~6 feet)
+   * So hoop rim should be ~4.2 units from ground (10/6 * 2.5)
    */
   createProfessionalHoops() {
     const courtLength = 28 * this.courtScale
-    const hoopOffset = courtLength / 2 - 2
+    const hoopOffset = courtLength / 2 - 1.5  // Position at baseline
 
-    // Left hoop - scaled up
+    // Proportional scale - hoops sized relative to player
+    const hoopScale = 1.25
+
+    // Left hoop - facing center court (toward +X)
     const leftHoop = this.createHoop()
-    leftHoop.rotation.y = Math.PI
-    leftHoop.scale.set(1.5, 1.5, 1.5)  // Scale up the hoop
-    leftHoop.position.set(-hoopOffset, this.floorHeight + 0.35, 0)
+    leftHoop.rotation.y = Math.PI  // Face toward center
+    leftHoop.scale.set(hoopScale, hoopScale, hoopScale)
+    leftHoop.position.set(-hoopOffset, this.floorHeight + 0.3, 0)
     this.group.add(leftHoop)
     this.hoops.push({
-      position: new THREE.Vector3(-hoopOffset + 2.5, 4.5, 0),
+      position: new THREE.Vector3(-hoopOffset + 1.6 * hoopScale, this.floorHeight + 2.55 * hoopScale + 0.3, 0),
       direction: 1
     })
 
-    // Right hoop - scaled up
+    // Right hoop - facing center court (toward -X)
     const rightHoop = this.createHoop()
-    rightHoop.scale.set(1.5, 1.5, 1.5)  // Scale up the hoop
-    rightHoop.position.set(hoopOffset, this.floorHeight + 0.35, 0)
+    rightHoop.rotation.y = 0  // Face toward center (default orientation)
+    rightHoop.scale.set(hoopScale, hoopScale, hoopScale)
+    rightHoop.position.set(hoopOffset, this.floorHeight + 0.3, 0)
     this.group.add(rightHoop)
     this.hoops.push({
-      position: new THREE.Vector3(hoopOffset - 2.5, 4.5, 0),
+      position: new THREE.Vector3(hoopOffset - 1.6 * hoopScale, this.floorHeight + 2.55 * hoopScale + 0.3, 0),
       direction: -1
     })
   }
@@ -681,19 +883,24 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create lower bowl seating sections
+   * Create lower bowl seating sections with walkable slopes
    */
   createLowerBowl() {
     const startRadius = 32
     const tiers = 8
     const tierHeight = 1.8
     const tierDepth = 2.8
+    const endRadius = startRadius + tiers * tierDepth
+
+    // Create a continuous walkable slope surface for the entire lower bowl
+    // This allows the player to walk up/down the seating area
+    this.createSeatingSlope(startRadius, endRadius, tiers, tierHeight)
 
     for (let tier = 0; tier < tiers; tier++) {
       const radius = startRadius + tier * tierDepth
       const height = this.floorHeight + 1 + tier * tierHeight
 
-      // Seating platform (concrete riser)
+      // Seating platform (concrete riser) - visual only
       const innerR = radius
       const outerR = radius + tierDepth * 0.95
 
@@ -709,6 +916,52 @@ export class BasketballIsland extends Island {
 
       // Individual seats with alternating colors
       this.createSeatingRow(radius + 1.2, height, tier, 'lower')
+    }
+  }
+
+  /**
+   * Create a continuous walkable slope for the seating area
+   * This provides collision for players walking through the stands
+   */
+  createSeatingSlope(startRadius, endRadius, tiers, tierHeight) {
+    // Create visible step risers (vertical faces) BEHIND each tier of seats
+    const segments = 32
+    const segmentAngle = (Math.PI * 2) / segments
+    const tierDepth = (endRadius - startRadius) / tiers
+
+    const riserMat = new THREE.MeshStandardMaterial({
+      color: 0x4A4A4A,
+      roughness: 0.9
+    })
+
+    for (let tier = 0; tier < tiers; tier++) {
+      // Position risers at the OUTER edge of each tier (behind the seats)
+      const outerRadius = startRadius + (tier + 1) * tierDepth
+      const height = this.floorHeight + 1 + tier * tierHeight
+
+      // Skip entrance angles when creating risers
+      for (let seg = 0; seg < segments; seg++) {
+        const angle = seg * segmentAngle
+        const angleDeg = (angle * 180 / Math.PI) % 360
+
+        // Skip entrance areas
+        if (this.isEntranceAngle(angleDeg)) continue
+
+        const nextAngle = (seg + 1) * segmentAngle
+        const midAngle = (angle + nextAngle) / 2
+
+        // Vertical riser face - positioned at outer edge (behind seats)
+        const riserWidth = outerRadius * segmentAngle * 1.05
+        const riserGeom = new THREE.BoxGeometry(riserWidth, tierHeight * 0.85, 0.2)
+        const riser = new THREE.Mesh(riserGeom, riserMat)
+
+        const x = Math.cos(midAngle) * outerRadius
+        const z = Math.sin(midAngle) * outerRadius
+
+        riser.position.set(x, height + tierHeight * 0.5, z)
+        riser.rotation.y = -midAngle + Math.PI / 2
+        this.group.add(riser)
+      }
     }
   }
 
@@ -794,36 +1047,34 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create upper bowl seating
+   * Create upper bowl seating - simplified and properly supported
    */
   createUpperBowl() {
-    const startRadius = 54
-    const startHeight = this.floorHeight + 17
-    const tiers = 6
-    const tierHeight = 2
-    const tierDepth = 2.5
+    // Removed floating upper bowl seats for a cleaner arena look
+    // The club level and lower bowl provide sufficient seating
 
-    for (let tier = 0; tier < tiers; tier++) {
-      const radius = startRadius + tier * tierDepth
-      const height = startHeight + tier * tierHeight
+    // Add a solid upper wall/fascia instead for a cleaner appearance
+    const wallRadius = 54
+    const wallHeight = 6
+    const wallY = this.floorHeight + 17
 
-      // Seating platform
-      const innerR = radius
-      const outerR = radius + tierDepth * 0.95
-
-      const riserGeom = new THREE.RingGeometry(innerR, outerR, 64)
-      const riserMat = new THREE.MeshStandardMaterial({
-        color: 0x3A3A3A,
-        roughness: 0.9
-      })
-      const riser = new THREE.Mesh(riserGeom, riserMat)
-      riser.rotation.x = -Math.PI / 2
-      riser.position.y = height
-      this.group.add(riser)
-
-      // Seats
-      this.createSeatingRow(radius + 1, height, tier, 'upper')
-    }
+    // Create a solid upper fascia ring
+    const fasciaGeom = new THREE.CylinderGeometry(
+      wallRadius + 2,  // top radius
+      wallRadius,      // bottom radius
+      wallHeight,
+      64,
+      1,
+      true  // open ended
+    )
+    const fasciaMat = new THREE.MeshStandardMaterial({
+      color: this.kingsColors.darkGray,
+      roughness: 0.7,
+      side: THREE.DoubleSide
+    })
+    const fascia = new THREE.Mesh(fasciaGeom, fasciaMat)
+    fascia.position.y = wallY + wallHeight / 2
+    this.group.add(fascia)
   }
 
   /**
@@ -889,13 +1140,11 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Check if angle is near an entrance
+   * Check if angle is near the single entrance (at angle 0)
    */
   isEntranceAngle(angleDeg) {
-    return (angleDeg > 352 || angleDeg < 8) ||
-           (angleDeg > 82 && angleDeg < 98) ||
-           (angleDeg > 172 && angleDeg < 188) ||
-           (angleDeg > 262 && angleDeg < 278)
+    // Only one entrance at angle 0 (positive X direction)
+    return (angleDeg > 350 || angleDeg < 10)
   }
 
   /**
@@ -1007,16 +1256,18 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create primary structural truss
+   * Create primary structural truss with hexagonal pillars
    */
   createPrimaryTruss(angle, radius, baseHeight, peakHeight, material) {
     const trussGroup = new THREE.Group()
 
-    // Main diagonal beam from perimeter to center peak
+    // Main diagonal beam from perimeter to center peak - hexagonal cylinder
     const beamLength = Math.sqrt(Math.pow(radius - 3, 2) + Math.pow(peakHeight - baseHeight, 2))
     const beamAngle = Math.atan2(peakHeight - baseHeight, radius - 3)
 
-    const mainBeamGeom = new THREE.BoxGeometry(1.5, 1.2, beamLength)
+    // Use hexagonal cylinder (6 radial segments) for pillar-like appearance
+    const mainBeamGeom = new THREE.CylinderGeometry(0.7, 0.8, beamLength, 6)
+    mainBeamGeom.rotateX(Math.PI / 2)  // Rotate to align with Z axis
     const mainBeam = new THREE.Mesh(mainBeamGeom, material)
     mainBeam.position.set(
       Math.cos(angle) * (radius / 2 - 1.5),
@@ -1027,8 +1278,9 @@ export class BasketballIsland extends Island {
     mainBeam.rotation.x = beamAngle
     trussGroup.add(mainBeam)
 
-    // Lower chord (horizontal)
-    const lowerChordGeom = new THREE.BoxGeometry(0.8, 0.6, radius - 10)
+    // Lower chord (horizontal) - hexagonal cylinder
+    const lowerChordGeom = new THREE.CylinderGeometry(0.4, 0.4, radius - 10, 6)
+    lowerChordGeom.rotateX(Math.PI / 2)
     const lowerChord = new THREE.Mesh(lowerChordGeom, material)
     lowerChord.position.set(
       Math.cos(angle) * (radius / 2),
@@ -1038,14 +1290,15 @@ export class BasketballIsland extends Island {
     lowerChord.rotation.y = -angle + Math.PI / 2
     trussGroup.add(lowerChord)
 
-    // Vertical web members
+    // Vertical web members - hexagonal pillars
     const webCount = 4
     for (let w = 1; w <= webCount; w++) {
       const webDist = (w / (webCount + 1)) * (radius - 10)
       const webHeight = baseHeight + 1 + (peakHeight - baseHeight - 3) * (1 - w / (webCount + 1))
       const webLength = webHeight - baseHeight - 1
 
-      const webGeom = new THREE.BoxGeometry(0.4, webLength, 0.4)
+      // Hexagonal vertical pillar
+      const webGeom = new THREE.CylinderGeometry(0.25, 0.3, webLength, 6)
       const web = new THREE.Mesh(webGeom, material)
       web.position.set(
         Math.cos(angle) * (8 + webDist),
@@ -1059,14 +1312,16 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create secondary structural truss (lighter weight)
+   * Create secondary structural truss (lighter weight) with hexagonal beams
    */
   createSecondaryTruss(angle, radius, baseHeight, peakHeight, material) {
-    // Simplified secondary truss - just the main diagonal
+    // Simplified secondary truss - hexagonal cylinder beam
     const beamLength = Math.sqrt(Math.pow(radius - 8, 2) + Math.pow(peakHeight - baseHeight - 5, 2))
     const beamAngle = Math.atan2(peakHeight - baseHeight - 5, radius - 8)
 
-    const beamGeom = new THREE.BoxGeometry(0.6, 0.5, beamLength)
+    // Hexagonal cylinder (6 segments)
+    const beamGeom = new THREE.CylinderGeometry(0.3, 0.35, beamLength, 6)
+    beamGeom.rotateX(Math.PI / 2)  // Align with Z axis
     const beam = new THREE.Mesh(beamGeom, material)
     beam.position.set(
       Math.cos(angle) * (radius / 2),
@@ -1220,56 +1475,94 @@ export class BasketballIsland extends Island {
   }
 
   /**
-   * Create player entrances/tunnels
+   * Create a single player entrance tunnel at one side of the arena
    */
   createEntrances() {
-    const entrancePositions = [
-      { angle: 0, label: 'KINGS' },
-      { angle: Math.PI / 2, label: 'VISITORS' },
-      { angle: Math.PI, label: 'MEDIA' },
-      { angle: Math.PI * 1.5, label: 'VIP' }
-    ]
-
-    entrancePositions.forEach(pos => {
-      const entrance = this.createEntrance()
-      entrance.rotation.y = pos.angle
-      const x = Math.cos(pos.angle) * (this.arenaRadius - 0.5)
-      const z = Math.sin(pos.angle) * (this.arenaRadius - 0.5)
-      entrance.position.set(x, this.floorHeight, z)
-      this.group.add(entrance)
-    })
+    // Create just ONE entrance tunnel at angle 0 (positive X side)
+    this.createEntranceTunnel()
   }
 
-  createEntrance() {
-    const group = new THREE.Group()
+  /**
+   * Create a single shallow entrance tunnel through the arena wall
+   */
+  createEntranceTunnel() {
+    const tunnelGroup = new THREE.Group()
 
-    // Larger tunnel frame
-    const frameGeom = new THREE.BoxGeometry(8, 6, 3)
-    const frameMat = new THREE.MeshStandardMaterial({
+    // Tunnel dimensions - shallow tunnel just through the wall
+    const tunnelWidth = 6
+    const tunnelHeight = 4
+    const tunnelLength = 12  // Short - just through the arena wall
+
+    // Materials
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: this.kingsColors.darkGray,
+      roughness: 0.8
+    })
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x3A3A3A,
+      roughness: 0.9
+    })
+    const accentMat = new THREE.MeshStandardMaterial({
       color: this.kingsColors.purple,
       roughness: 0.7
     })
-    const frame = new THREE.Mesh(frameGeom, frameMat)
-    frame.position.y = 3
-    group.add(frame)
 
-    // Tunnel opening - large enough to walk through
-    const openingGeom = new THREE.BoxGeometry(6, 5, 4)
-    const openingMat = new THREE.MeshStandardMaterial({ color: 0x111111 })
-    const opening = new THREE.Mesh(openingGeom, openingMat)
-    opening.position.set(0, 2.5, 1)
-    group.add(opening)
+    // Tunnel position - at the arena wall edge
+    const tunnelCenterDist = this.arenaRadius  // At the arena wall
 
-    // Floor of tunnel (walkable) - longer ramp
-    const floorGeom = new THREE.BoxGeometry(6, 0.3, 8)
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x3A3A3A })
+    // Walkable floor
+    const floorGeom = new THREE.BoxGeometry(tunnelWidth, 0.3, tunnelLength)
     const floor = new THREE.Mesh(floorGeom, floorMat)
-    floor.position.set(0, 0.15, 3)
+    floor.position.set(tunnelCenterDist, 0.15, 0)
     floor.receiveShadow = true
-    group.add(floor)
-    this.arenaCollisionMeshes.push(floor)
+    tunnelGroup.add(floor)
 
-    return group
+    // Left wall
+    const sideWallGeom = new THREE.BoxGeometry(tunnelLength, tunnelHeight, 0.5)
+    const leftWall = new THREE.Mesh(sideWallGeom, wallMat)
+    leftWall.position.set(tunnelCenterDist, tunnelHeight / 2, -tunnelWidth / 2 - 0.25)
+    leftWall.castShadow = true
+    tunnelGroup.add(leftWall)
+
+    // Right wall
+    const rightWall = new THREE.Mesh(sideWallGeom.clone(), wallMat)
+    rightWall.position.set(tunnelCenterDist, tunnelHeight / 2, tunnelWidth / 2 + 0.25)
+    rightWall.castShadow = true
+    tunnelGroup.add(rightWall)
+
+    // Ceiling
+    const ceilingGeom = new THREE.BoxGeometry(tunnelLength, 0.4, tunnelWidth + 1)
+    const ceiling = new THREE.Mesh(ceilingGeom, wallMat)
+    ceiling.position.set(tunnelCenterDist, tunnelHeight, 0)
+    tunnelGroup.add(ceiling)
+
+    // Entrance portal frame (outer side - facing outside)
+    const outerPortalGeom = new THREE.BoxGeometry(1.5, tunnelHeight + 1, tunnelWidth + 2)
+    const outerPortal = new THREE.Mesh(outerPortalGeom, accentMat)
+    outerPortal.position.set(tunnelCenterDist + tunnelLength / 2 + 0.5, (tunnelHeight + 1) / 2, 0)
+    tunnelGroup.add(outerPortal)
+
+    // Inner portal frame (court side)
+    const innerPortalGeom = new THREE.BoxGeometry(1, tunnelHeight + 0.5, tunnelWidth + 1.5)
+    const innerPortal = new THREE.Mesh(innerPortalGeom, accentMat)
+    innerPortal.position.set(tunnelCenterDist - tunnelLength / 2 - 0.3, (tunnelHeight + 0.5) / 2, 0)
+    tunnelGroup.add(innerPortal)
+
+    // Floor lights (decorative)
+    const lightMat = new THREE.MeshStandardMaterial({
+      color: 0xFFFFFF,
+      emissive: 0xFFFFFF,
+      emissiveIntensity: 0.3
+    })
+    for (let i = 0; i < 2; i++) {
+      const lightGeom = new THREE.BoxGeometry(4, 0.05, 0.3)
+      const lightL = new THREE.Mesh(lightGeom, lightMat)
+      lightL.position.set(tunnelCenterDist, 0.32, -tunnelWidth / 2 + 1 + i * (tunnelWidth - 2))
+      tunnelGroup.add(lightL)
+    }
+
+    tunnelGroup.position.y = this.floorHeight
+    this.group.add(tunnelGroup)
   }
 
   /**
