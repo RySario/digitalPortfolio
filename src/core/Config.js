@@ -9,9 +9,9 @@ export const Config = {
     fov: 60,
     near: 0.1,
     far: 1000,
-    // Initial position - front view, looking up at building
-    startPosition: { x: 0, y: 3, z: 45 },
-    lookAt: { x: 0, y: 12, z: 0 },  // Looking up at top of building
+    // Initial position - angled view to match reference image
+    startPosition: { x: 22, y: 18, z: 37 },
+    lookAt: { x: 0, y: 12, z: 0 },  // Looking at center of building
 
     // Focus position when viewing main billboard
     focusPosition: { x: 0, y: 18, z: 35 },
@@ -25,8 +25,8 @@ export const Config = {
     sensitivity: 0.003,
     minDistance: 25,
     maxDistance: 80,
-    minPolarAngle: Math.PI / 6,    // Prevent too steep top-down
-    maxPolarAngle: Math.PI * 0.48,  // Prevent going below platform
+    minPolarAngle: Math.PI / 6,    // Prevent too steep top-down (~30°)
+    maxPolarAngle: 1.85,           // Allow looking up at building without going underground (~106°)
     smoothness: 0.1,
     zoomSpeed: 0.5
   },
@@ -216,7 +216,7 @@ export const Config = {
   floorText: {
     name: {
       text: 'RYAN SARIO',
-      position: { x: 8, y: 1.6, z: -5 },  // Right side, near arcade
+      position: { x: 8, y: 2, z: -5 },  // Right side, near arcade
       rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
       fontSize: 2.5,
       color: 0xffffff,  // Neon white
@@ -225,7 +225,7 @@ export const Config = {
     subtitles: [
       {
         text: 'Software Engineer',
-        position: { x: 10.5, y: 1.6, z: -5 },  // Stacked vertically
+        position: { x: 10.5, y: 2, z: -5 },  // Stacked vertically
         rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
         fontSize: 1.5,
         color: 0xffffff,  // Neon white
@@ -233,7 +233,7 @@ export const Config = {
       },
       {
         text: 'Quality Engineer',
-        position: { x: 13, y: 1.6, z: -5 },  // Stacked vertically
+        position: { x: 13, y: 2, z: -5 },  // Stacked vertically
         rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
         fontSize: 1.5,
         color: 0xffffff,  // Neon white
@@ -241,7 +241,7 @@ export const Config = {
       },
       {
         text: 'Content Creator',
-        position: { x: 15.5, y: 1.6, z: -5 },  // Stacked vertically
+        position: { x: 15.5, y: 2, z: -5 },  // Stacked vertically
         rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
         fontSize: 1.5,
         color: 0xffffff,  // Neon white
