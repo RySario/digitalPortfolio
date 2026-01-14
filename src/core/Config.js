@@ -14,8 +14,8 @@ export const Config = {
     lookAt: { x: 0, y: 12, z: 0 },  // Looking at center of building
 
     // Focus position when viewing main billboard
-    focusPosition: { x: 0, y: 18, z: 35 },
-    focusLookAt: { x: 0, y: 18, z: 0 }
+    focusPosition: { x: -5, y: 35.25, z: 10 },
+    focusLookAt: { x: -25, y: 35.25, z: -15 }
   },
 
   // Orbit camera controls
@@ -26,7 +26,7 @@ export const Config = {
     minDistance: 25,
     maxDistance: 80,
     minPolarAngle: Math.PI / 6,    // Prevent too steep top-down (~30°)
-    maxPolarAngle: 1.85,           // Allow looking up at building without going underground (~106°)
+    maxPolarAngle: 1.70,           // Prevent camera from going underground (~97°)
     smoothness: 0.1,
     zoomSpeed: 0.5
   },
@@ -81,13 +81,13 @@ export const Config = {
 
   // Billboard/Screen configuration
   billboards: {
-    // Main interactive billboard (top of building, facing front)
+    // Main interactive billboard (positioned at the top of the building model - scaled by 450)
     main: {
-      width: 8,
-      height: 5,
-      position: { x: 0, y: 22, z: 6 },  // Top of building
-      rotation: { x: 0, y: 0, z: 0 },
-      emissiveIntensity: 0.5,
+      width: 16,
+      height: 11.85,
+      position: { x: -9.5, y: 35.25, z: 3 },  // Top of building where physical "SODA" billboard is
+      rotation: { x: 0, y: 0.7, z: 0 },
+      emissiveIntensity: 0.6,
       interactive: true
     },
 
@@ -225,7 +225,7 @@ export const Config = {
     subtitles: [
       {
         text: 'Software Engineer',
-        position: { x: 10.5, y: 2, z: -5 },  // Stacked vertically
+        position: { x: 10.5, y: 2, z: -5 },  // Left-aligned with name
         rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
         fontSize: 1.5,
         color: 0xffffff,  // Neon white
@@ -233,7 +233,7 @@ export const Config = {
       },
       {
         text: 'Quality Engineer',
-        position: { x: 13, y: 2, z: -5 },  // Stacked vertically
+        position: { x: 13, y: 2, z: -5 },  // Left-aligned with name
         rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
         fontSize: 1.5,
         color: 0xffffff,  // Neon white
@@ -241,7 +241,7 @@ export const Config = {
       },
       {
         text: 'Content Creator',
-        position: { x: 15.5, y: 2, z: -5 },  // Stacked vertically
+        position: { x: 15.5, y: 2, z: -5 },  // Left-aligned with name
         rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
         fontSize: 1.5,
         color: 0xffffff,  // Neon white

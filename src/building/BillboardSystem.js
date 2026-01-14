@@ -31,7 +31,7 @@ export class BillboardSystem {
       config.position,
       config.rotation,
       config.emissiveIntensity,
-      0x00d9ff, // Cyan color for main billboard
+      0xd946a6, // Pink/magenta color to match building aesthetic
       true, // Interactive
       true  // Skip top/bottom frames for main billboard
     )
