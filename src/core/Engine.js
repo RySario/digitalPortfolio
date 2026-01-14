@@ -1,15 +1,19 @@
+/**
+ * Engine
+ * Core 3D rendering engine for the Cyberpunk Building Portfolio
+ */
+
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { Config } from './Config.js'
 import { AssetLoader } from './AssetLoader.js'
-import { WorldManager } from '../world/WorldManager.js'
-import { CloudSystem } from '../world/CloudSystem.js'
-import { BoidSystem } from '../world/BoidSystem.js'
-import { GrassSystem } from '../world/GrassSystem.js'
-import { CollisionManager } from '../controls/CollisionManager.js'
-import { Player } from '../player/Player.js'
-import { ThirdPersonControls } from '../controls/ThirdPersonControls.js'
-import { GeometryUtils } from '../utils/GeometryUtils.js'
+import { OrbitCameraControls } from '../controls/OrbitCameraControls.js'
+import { CyberpunkBuilding } from '../building/CyberpunkBuilding.js'
+import { NeonElements } from '../building/NeonElements.js'
+import { BillboardSystem } from '../building/BillboardSystem.js'
+import { SceneElements } from '../scene/SceneElements.js'
+import { FloorText } from '../scene/FloorText.js'
+import { StreetSigns } from '../scene/StreetSigns.js'
+import { MainBillboardUI } from '../ui/MainBillboardUI.js'
 
 class Engine {
   constructor() {
@@ -22,22 +26,24 @@ class Engine {
 
     // Core systems
     this.assetLoader = null
-    this.worldManager = null
-    this.cloudSystem = null
-    this.collisionManager = null
-    this.birdSystem = null
-    this.grassSystem = null
-    this.player = null
-
-    // Controls
     this.controls = null
-    this.thirdPersonControls = null
+    this.building = null
+    this.neonElements = null
+    this.billboardSystem = null
+    this.sceneElements = null
+    this.floorText = null
+    this.streetSigns = null
+    this.mainBillboardUI = null
+
+    // Raycaster for billboard interaction
+    this.raycaster = new THREE.Raycaster()
+    this.mouse = new THREE.Vector2()
 
     // Don't call init here - it's async now
   }
 
   async init() {
-    console.log('Initializing 3D Portfolio...')
+    console.log('Initializing Cyberpunk Portfolio...')
 
     // Setup scene
     this.setupScene()
@@ -51,352 +57,327 @@ class Engine {
     // Setup lighting
     this.setupLights()
 
-    // Load assets
+    // Load assets (if any)
     this.assetLoader = new AssetLoader()
     await this.assetLoader.loadAll()
     console.log('Assets loaded')
 
-    // Create collision manager
-    this.collisionManager = new CollisionManager(this.scene, this.camera)
+    // Create building
+    this.building = new CyberpunkBuilding()
+    this.scene.add(this.building.getGroup())
+    console.log('Building created')
 
-    // Create world (islands, ocean, bridges)
-    this.worldManager = new WorldManager(this.scene, this.collisionManager)
-    await this.worldManager.createWorld()
-    console.log('World created')
+    // Create neon elements
+    this.neonElements = new NeonElements()
+    this.scene.add(this.neonElements.getGroup())
+    console.log('Neon elements created')
 
-    // Create cloud system
-    this.cloudSystem = new CloudSystem(this.scene)
-    console.log('Clouds created')
+    // Create billboard system
+    this.billboardSystem = new BillboardSystem()
+    this.scene.add(this.billboardSystem.getGroup())
+    console.log('Billboard system created')
 
-    // Create bird system (boids)
-    this.birdSystem = new BoidSystem(this.scene)
-    console.log('Bird flock created')
+    // Create scene elements (car, arcade, etc.)
+    this.sceneElements = new SceneElements()
+    this.scene.add(this.sceneElements.getGroup())
+    console.log('Scene elements created')
 
-    // Create grass system and add to islands
-    this.grassSystem = new GrassSystem(this.scene)
-    this.addGrassToWorld()
-    console.log('Grass system created')
+    // Create floor text (Ryan Sario)
+    this.floorText = new FloorText()
+    this.scene.add(this.floorText.getGroup())
+    console.log('Floor text created')
 
-    // Create player
-    try {
-      this.player = new Player(this.scene)
+    // Create street signs (attached to street lamp)
+    this.streetSigns = new StreetSigns(this.sceneElements.getStreetLightGroup())
+    console.log('Street signs created')
 
-      // Set initial position on terrain - use central hub
-      const hubRadius = Config.centralHub.radius
-      const spawnX = Config.player.startPosition.x
-      const spawnZ = Config.player.startPosition.z
+    // Setup camera controls
+    this.controls = new OrbitCameraControls(this.camera, this.renderer.domElement)
+    this.controls.setInitialPosition()
+    console.log('Camera controls initialized')
 
-      // Calculate terrain height using the same function as islands
-      const terrainHeight = GeometryUtils.getTerrainHeight(spawnX, spawnZ, hubRadius, hubRadius * 1000)
+    // Create main billboard UI
+    this.mainBillboardUI = new MainBillboardUI(() => {
+      // Callback when UI is closed
+      this.controls.returnToOrbit()
+    })
+    console.log('Billboard UI created')
 
-      // Spawn above terrain
-      const spawnY = Math.max(terrainHeight + 0.5, 5)
+    // Add event listeners
+    this.addEventListeners()
 
-      const spawnPos = new THREE.Vector3(spawnX, spawnY, spawnZ)
-      this.player.setPosition(spawnPos)
-      this.player.isGrounded = true
-      this.player.velocity.set(0, 0, 0)
-
-      console.log('Player spawning at terrain height:', terrainHeight, 'final Y:', spawnY)
-      console.log('Player created at:', this.player.getPosition())
-
-      // Setup third-person controls
-      this.setupThirdPersonControls()
-      console.log('Third-person controls initialized')
-      console.log('Controls: WASD to move, Mouse to look, Shift to run, Space to jump')
-    } catch (error) {
-      console.error('Error creating player:', error)
-      // Fall back to orbit controls if player creation fails
-      this.setupOrbitControls()
-      console.log('Fell back to orbit controls')
-    }
-
-    // Handle window resize
-    window.addEventListener('resize', this.onWindowResize.bind(this))
+    // Hide loading screen
+    this.hideLoadingScreen()
 
     // Start render loop
-    this.isRunning = true
-    this.animate()
+    this.start()
 
-    console.log('3D Portfolio ready!')
-    console.log('Camera position:', this.camera.position)
-    console.log('Scene children count:', this.scene.children.length)
+    console.log('Cyberpunk Portfolio initialized successfully!')
   }
 
   setupScene() {
     this.scene = new THREE.Scene()
     this.scene.background = new THREE.Color(Config.scene.backgroundColor)
-    this.scene.fog = new THREE.FogExp2(Config.scene.fogColor, Config.scene.fogDensity)
+
+    // Optional fog (disabled by default in cyberpunk mode)
+    if (Config.scene.fogEnabled) {
+      this.scene.fog = new THREE.FogExp2(Config.scene.backgroundColor, 0.001)
+    }
   }
 
   setupCamera() {
+    const aspect = window.innerWidth / window.innerHeight
     this.camera = new THREE.PerspectiveCamera(
       Config.camera.fov,
-      window.innerWidth / window.innerHeight,
+      aspect,
       Config.camera.near,
       Config.camera.far
     )
-    this.camera.position.set(
-      Config.camera.startPosition.x,
-      Config.camera.startPosition.y,
-      Config.camera.startPosition.z
-    )
+
+    const startPos = Config.camera.startPosition
+    this.camera.position.set(startPos.x, startPos.y, startPos.z)
+
+    const lookAt = Config.camera.lookAt
+    this.camera.lookAt(lookAt.x, lookAt.y, lookAt.z)
   }
 
   setupRenderer() {
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance'
+      alpha: false
     })
+
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.2
+
     this.container.appendChild(this.renderer.domElement)
 
-    console.log('Renderer initialized, canvas size:', window.innerWidth, 'x', window.innerHeight)
-    console.log('Canvas appended to:', this.container)
+    // Set cursor style
+    this.renderer.domElement.style.cursor = 'grab'
   }
 
   setupLights() {
-    // Ambient light
+    // Ambient light (very low for cyberpunk atmosphere)
+    const ambientConfig = Config.lighting.ambient
     const ambientLight = new THREE.AmbientLight(
-      Config.lighting.ambient.color,
-      Config.lighting.ambient.intensity
+      ambientConfig.color,
+      ambientConfig.intensity
     )
     this.scene.add(ambientLight)
 
-    // Directional light (sun)
-    const directionalLight = new THREE.DirectionalLight(
-      Config.lighting.directional.color,
-      Config.lighting.directional.intensity
-    )
-    directionalLight.position.set(
-      Config.lighting.directional.position.x,
-      Config.lighting.directional.position.y,
-      Config.lighting.directional.position.z
-    )
-    directionalLight.castShadow = true
-    directionalLight.shadow.mapSize.width = Config.lighting.directional.shadowMapSize
-    directionalLight.shadow.mapSize.height = Config.lighting.directional.shadowMapSize
-    directionalLight.shadow.camera.near = 0.5
-    directionalLight.shadow.camera.far = 500
-    directionalLight.shadow.camera.left = -200
-    directionalLight.shadow.camera.right = 200
-    directionalLight.shadow.camera.top = 200
-    directionalLight.shadow.camera.bottom = -200
-    this.scene.add(directionalLight)
-
-    // Hemisphere light (sky/ground ambient)
-    const hemisphereLight = new THREE.HemisphereLight(
-      Config.lighting.hemisphere.skyColor,
-      Config.lighting.hemisphere.groundColor,
-      Config.lighting.hemisphere.intensity
-    )
-    this.scene.add(hemisphereLight)
-  }
-
-  setupThirdPersonControls() {
-    this.thirdPersonControls = new ThirdPersonControls(
-      this.player,
-      this.camera,
-      this.renderer.domElement
-    )
-
-    // Position camera behind and above player initially
-    const playerPos = this.player.getPosition()
-    const distance = Config.camera.thirdPerson.distance
-    const height = Config.camera.thirdPerson.height
-
-    // Camera starts behind the player
-    this.camera.position.set(
-      playerPos.x,
-      playerPos.y + Config.player.height * 0.65 + height + distance * 0.3,
-      playerPos.z + distance
-    )
-
-    // Look at player
-    const lookAtPoint = new THREE.Vector3(
-      playerPos.x,
-      playerPos.y + Config.player.height * 0.65,
-      playerPos.z
-    )
-    this.camera.lookAt(lookAtPoint)
-
-    console.log('Third-person controls initialized')
-  }
-
-  /**
-   * Add grass to all islands and central hub
-   * Skips islands that shouldn't have grass (like the basketball arena)
-   */
-  addGrassToWorld() {
-    if (!this.grassSystem || !this.worldManager) return
-
-    // Add grass to central hub
-    const hubRadius = Config.centralHub.radius
-    this.grassSystem.addGrassToIsland(new THREE.Vector3(0, 0, 0), hubRadius, 0.2)
-    this.grassSystem.addFlowersToIsland(new THREE.Vector3(0, 0, 0), hubRadius)
-
-    // Add grass to each island (except special ones like basketball arena)
-    const islands = this.worldManager.getIslands()
-    islands.forEach(island => {
-      // Skip basketball arena - it's a concrete/hardwood indoor arena
-      if (island.getName() === 'Golden 1 Center') {
-        return
-      }
-
-      const islandRadius = island.radius || Config.islands.baseSize / 2
-      this.grassSystem.addGrassToIsland(island.position, islandRadius, 0.15)
-      this.grassSystem.addFlowersToIsland(island.position, islandRadius)
+    // Neon point lights
+    Config.lighting.neonLights.forEach(lightConfig => {
+      const light = new THREE.PointLight(
+        lightConfig.color,
+        lightConfig.intensity,
+        lightConfig.distance,
+        lightConfig.decay
+      )
+      light.position.set(
+        lightConfig.position.x,
+        lightConfig.position.y,
+        lightConfig.position.z
+      )
+      light.castShadow = true
+      light.shadow.mapSize.width = 1024
+      light.shadow.mapSize.height = 1024
+      this.scene.add(light)
     })
+
+    // Fill light to prevent pure black
+    const fillConfig = Config.lighting.fillLight
+    const fillLight = new THREE.HemisphereLight(
+      fillConfig.color,
+      0x000000,
+      fillConfig.intensity
+    )
+    this.scene.add(fillLight)
+
+    // Add spotlights
+    if (Config.lighting.spotlights) {
+      Config.lighting.spotlights.forEach(spotConfig => {
+        const spotlight = new THREE.SpotLight(
+          spotConfig.color,
+          spotConfig.intensity,
+          spotConfig.distance,
+          spotConfig.angle,
+          spotConfig.penumbra,
+          spotConfig.decay
+        )
+        spotlight.position.set(
+          spotConfig.position.x,
+          spotConfig.position.y,
+          spotConfig.position.z
+        )
+        spotlight.target.position.set(
+          spotConfig.target.x,
+          spotConfig.target.y,
+          spotConfig.target.z
+        )
+        spotlight.castShadow = true
+        spotlight.shadow.mapSize.width = 1024
+        spotlight.shadow.mapSize.height = 1024
+        this.scene.add(spotlight)
+        this.scene.add(spotlight.target)
+      })
+    }
   }
 
-  setupOrbitControls() {
-    // Keep this for debugging/testing if needed
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement)
-    this.controls.enableDamping = Config.orbitControls.enableDamping
-    this.controls.dampingFactor = Config.orbitControls.dampingFactor
-    this.controls.minDistance = Config.orbitControls.minDistance
-    this.controls.maxDistance = Config.orbitControls.maxDistance
-    this.controls.maxPolarAngle = Config.orbitControls.maxPolarAngle
-    this.controls.minPolarAngle = Config.orbitControls.minPolarAngle
+  addEventListeners() {
+    // Window resize
+    window.addEventListener('resize', () => this.onWindowResize())
 
-    // Set initial target
-    this.controls.target.set(
-      Config.camera.lookAt.x,
-      Config.camera.lookAt.y,
-      Config.camera.lookAt.z
-    )
-    this.controls.update()
+    // Mouse click for billboard interaction
+    this.renderer.domElement.addEventListener('click', (event) => this.onMouseClick(event))
   }
 
   onWindowResize() {
-    this.camera.aspect = window.innerWidth / window.innerHeight
+    const width = window.innerWidth
+    const height = window.innerHeight
+
+    this.camera.aspect = width / height
     this.camera.updateProjectionMatrix()
-    this.renderer.setSize(window.innerWidth, window.innerHeight)
+
+    this.renderer.setSize(width, height)
+  }
+
+  onMouseClick(event) {
+    // Don't raycast if UI is open
+    if (this.mainBillboardUI && this.mainBillboardUI.isVisible) {
+      return
+    }
+
+    // Calculate mouse position in normalized device coordinates
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
+
+    // Update raycaster
+    this.raycaster.setFromCamera(this.mouse, this.camera)
+
+    // Check for intersection with street signs first
+    if (this.streetSigns) {
+      const interactiveSigns = this.streetSigns.getInteractiveSigns()
+      const signIntersects = this.raycaster.intersectObjects(interactiveSigns, true)
+
+      if (signIntersects.length > 0) {
+        // Find the sign group
+        let signObject = signIntersects[0].object
+        while (signObject.parent && !signObject.userData.action) {
+          signObject = signObject.parent
+        }
+
+        if (signObject.userData.action === 'openMainBillboard') {
+          console.log('Street sign clicked!')
+          this.onMainBillboardClick()
+          return
+        }
+      }
+    }
+
+    // Check for intersection with main billboard
+    const mainBillboard = this.billboardSystem.getMainBillboard()
+    if (!mainBillboard) return
+
+    const intersects = this.raycaster.intersectObjects([mainBillboard], true)
+
+    if (intersects.length > 0) {
+      // Check if camera is facing the front of the billboard
+      const billboardNormal = new THREE.Vector3(0, 0, 1)  // Billboard faces +Z
+      billboardNormal.applyQuaternion(mainBillboard.quaternion)  // Apply billboard rotation
+
+      const cameraDirection = new THREE.Vector3()
+      this.camera.getWorldDirection(cameraDirection)
+
+      // Check if we're looking at the front (dot product should be negative when facing front)
+      const dotProduct = cameraDirection.dot(billboardNormal)
+
+      if (dotProduct < 0) {
+        console.log('Main billboard clicked from front!')
+        this.onMainBillboardClick()
+      } else {
+        console.log('Billboard clicked from back - ignoring')
+      }
+    }
+  }
+
+  onMainBillboardClick() {
+    // Focus camera on billboard and show UI
+    this.controls.focusOnBillboard(() => {
+      // Once camera animation is complete, show the UI
+      this.mainBillboardUI.show()
+    })
+  }
+
+  hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loading-screen')
+    if (loadingScreen) {
+      loadingScreen.style.opacity = '0'
+      setTimeout(() => {
+        loadingScreen.style.display = 'none'
+      }, 500)
+    }
+  }
+
+  start() {
+    if (this.isRunning) return
+
+    this.isRunning = true
+    this.animate()
+  }
+
+  stop() {
+    this.isRunning = false
   }
 
   animate() {
     if (!this.isRunning) return
 
-    requestAnimationFrame(this.animate.bind(this))
+    requestAnimationFrame(() => this.animate())
 
-    const delta = Math.min(this.clock.getDelta(), 0.1)
+    const deltaTime = this.clock.getDelta()
 
-    // Update third-person controls and player
-    if (this.thirdPersonControls && this.player && this.collisionManager) {
-      try {
-        // Get current position before movement
-        const currentPosition = this.player.getPosition()
-
-        // Get proposed position from controls
-        const proposedPosition = this.thirdPersonControls.update(delta)
-
-        // Handle collision and movement
-        if (proposedPosition) {
-          // Check collision with ground and environment
-          const collisionResult = this.collisionManager.checkCollision(
-            currentPosition,
-            proposedPosition
-          )
-
-          // Update player position based on collision result
-          this.player.setPosition(collisionResult.position)
-
-          // Update player grounded state - but NOT if actively jumping
-          // This prevents the jump from being cancelled by collision detection
-          if (this.player.isJumping && this.player.velocity.y > 0) {
-            // Player is actively jumping upward - don't mark as grounded
-            this.player.isGrounded = false
-          } else if (this.player.velocity.y > 0.1) {
-            // Still moving up but not from initial jump - don't ground
-            this.player.isGrounded = false
-          } else {
-            this.player.isGrounded = collisionResult.grounded
-          }
-
-          // Reset jumping if grounded AND moving downward or stationary
-          if (collisionResult.grounded && this.player.velocity.y <= 0.1) {
-            this.player.isJumping = false
-            if (this.player.velocity.y < 0) {
-              this.player.velocity.y = 0
-            }
-          }
-        }
-
-        // Update player physics and animation
-        this.player.update(delta)
-      } catch (error) {
-        console.error('Error in player update:', error)
-      }
+    // Update controls
+    if (this.controls) {
+      this.controls.update(deltaTime)
     }
 
-    // Update orbit controls if using them
-    if (this.controls && !this.thirdPersonControls) {
-      this.controls.update()
-    }
-
-    // Update ocean waves and Bifrost bridges
-    if (this.worldManager) {
-      this.worldManager.updateOcean(delta)
-      this.worldManager.updateBifrost(delta)
-    }
-
-    // Check if player fell in water - respawn
-    if (this.player) {
-      const playerPos = this.player.getPosition()
-      const waterLevel = Config.ocean.position.y + 1  // Above water surface
-
-      if (playerPos.y < waterLevel) {
-        // Calculate spawn height using the same method as initial spawn
-        const hubRadius = Config.centralHub.radius
-        const spawnX = Config.player.startPosition.x
-        const spawnZ = Config.player.startPosition.z
-        const terrainHeight = GeometryUtils.getTerrainHeight(spawnX, spawnZ, hubRadius, hubRadius * 1000)
-        const spawnY = Math.max(terrainHeight + 0.5, 5)
-
-        // Respawn at spawn point
-        this.player.setPosition(new THREE.Vector3(spawnX, spawnY, spawnZ))
-        this.player.velocity.set(0, 0, 0)
-        this.player.isGrounded = true
-        console.log('Player fell in water - respawning at height:', spawnY)
-      }
-    }
-
-    // Update clouds
-    if (this.cloudSystem) {
-      this.cloudSystem.update(delta)
-    }
-
-    // Update birds
-    if (this.birdSystem) {
-      this.birdSystem.update(delta)
-    }
-
-    // Update grass (wind animation)
-    if (this.grassSystem) {
-      this.grassSystem.update(delta)
+    // Update steam animation
+    if (this.building) {
+      this.building.updateSteam(deltaTime)
     }
 
     // Render scene
-    if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera)
-    }
+    this.renderer.render(this.scene, this.camera)
   }
 
   dispose() {
-    this.isRunning = false
-    window.removeEventListener('resize', this.onWindowResize.bind(this))
+    this.stop()
 
-    if (this.controls) {
-      this.controls.dispose()
-    }
+    // Dispose of systems
+    if (this.controls) this.controls.dispose()
+    if (this.neonElements) this.neonElements.dispose()
+    if (this.billboardSystem) this.billboardSystem.dispose()
+    if (this.mainBillboardUI) this.mainBillboardUI.dispose()
 
-    if (this.renderer) {
-      this.renderer.dispose()
-    }
+    // Dispose of Three.js resources
+    this.scene.traverse((object) => {
+      if (object.geometry) object.geometry.dispose()
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach(material => material.dispose())
+        } else {
+          object.material.dispose()
+        }
+      }
+    })
+
+    this.renderer.dispose()
   }
 }
 
+export { Engine }
 export default Engine

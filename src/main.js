@@ -12,8 +12,8 @@ async function init() {
     // Make engine globally accessible for debugging
     window.engine = engine
 
-    console.log('3D Portfolio fully initialized!')
-    console.log('Click on the canvas to start flying around!')
+    console.log('Cyberpunk Portfolio fully initialized!')
+    console.log('Click and drag to rotate camera. Click the main billboard to view portfolio!')
 
   } catch (error) {
     console.error('Failed to initialize 3D Portfolio:', error)

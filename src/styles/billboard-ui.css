@@ -1,0 +1,233 @@
+/**
+ * Billboard UI Styles
+ * Cyberpunk-themed UI for the main billboard interaction
+ */
+
+#billboard-ui {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  max-width: 800px;
+  height: 70%;
+  max-height: 600px;
+  background: rgba(10, 10, 20, 0.95);
+  border: 2px solid #00d9ff;
+  border-radius: 8px;
+  box-shadow:
+    0 0 20px rgba(0, 217, 255, 0.5),
+    inset 0 0 40px rgba(0, 217, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  opacity: 0;
+  font-family: 'Arial', sans-serif;
+  color: #ffffff;
+}
+
+/* Tabs container */
+.tabs {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem 2rem 0 2rem;
+  border-bottom: 2px solid rgba(0, 217, 255, 0.3);
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.tab-button:hover {
+  color: #00d9ff;
+}
+
+.tab-button.active {
+  color: #00d9ff;
+}
+
+.tab-button.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #00d9ff;
+  box-shadow: 0 0 10px #00d9ff;
+}
+
+/* Content container */
+.content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  position: relative;
+}
+
+.tab-content {
+  display: none;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.tab-content.active {
+  display: block;
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Content styling */
+.tab-content h2 {
+  color: #00d9ff;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+}
+
+.tab-content h3 {
+  color: #9b59b6;
+  font-size: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tab-content p {
+  line-height: 1.8;
+  margin-bottom: 1rem;
+  color: #ccc;
+}
+
+.tab-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.tab-content ul li {
+  padding: 0.5rem 0;
+  padding-left: 1.5rem;
+  position: relative;
+  color: #ccc;
+}
+
+.tab-content ul li::before {
+  content: '▹';
+  position: absolute;
+  left: 0;
+  color: #00d9ff;
+  font-weight: bold;
+}
+
+/* Experience item */
+.experience-item {
+  background: rgba(155, 89, 182, 0.1);
+  border-left: 3px solid #9b59b6;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 4px;
+}
+
+.experience-item .date {
+  color: #00d9ff;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Close button */
+.close-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: transparent;
+  border: 2px solid #00d9ff;
+  color: #00d9ff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background: #00d9ff;
+  color: #0a0a14;
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.7);
+  transform: rotate(90deg);
+}
+
+/* Scrollbar styling */
+.content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: rgba(0, 217, 255, 0.1);
+  border-radius: 4px;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: #00d9ff;
+  border-radius: 4px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: #9b59b6;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  #billboard-ui {
+    width: 95%;
+    height: 80%;
+  }
+
+  .tabs {
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+
+  .tab-button {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .tab-content h2 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Glow effect on hover */
+#billboard-ui:hover {
+  box-shadow:
+    0 0 30px rgba(0, 217, 255, 0.7),
+    inset 0 0 40px rgba(0, 217, 255, 0.15);
+}
