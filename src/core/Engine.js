@@ -46,44 +46,54 @@ class Engine {
     console.log('Initializing Cyberpunk Portfolio...')
 
     // Setup scene
+    this.updateLoadingProgress(10, 'Initializing scene...')
     this.setupScene()
 
     // Setup camera
+    this.updateLoadingProgress(20, 'Setting up camera...')
     this.setupCamera()
 
     // Setup renderer
+    this.updateLoadingProgress(30, 'Configuring renderer...')
     this.setupRenderer()
 
     // Setup lighting
+    this.updateLoadingProgress(40, 'Adding neon lights...')
     this.setupLights()
 
     // Load assets (if any)
+    this.updateLoadingProgress(45, 'Loading assets...')
     this.assetLoader = new AssetLoader()
     await this.assetLoader.loadAll()
     console.log('Assets loaded')
 
     // Load cyberpunk store model
+    this.updateLoadingProgress(50, 'Loading building model...')
     this.building = new CyberpunkStoreModel()
     await this.building.load()
     this.scene.add(this.building.getGroup())
     console.log('Cyberpunk store model loaded and added to scene')
 
     // Neon elements temporarily disabled to clean up scene
+    this.updateLoadingProgress(65, 'Setting up scene elements...')
     // this.neonElements = new NeonElements()
     // this.scene.add(this.neonElements.getGroup())
     console.log('Neon elements disabled')
 
     // Create billboard system
+    this.updateLoadingProgress(70, 'Creating billboards...')
     this.billboardSystem = new BillboardSystem()
     this.scene.add(this.billboardSystem.getGroup())
     console.log('Billboard system created')
 
-    // Create scene elements (car, arcade, etc.)
-    this.sceneElements = new SceneElements()
-    this.scene.add(this.sceneElements.getGroup())
-    console.log('Scene elements created')
+    // Scene elements disabled - removed all extra props
+    this.updateLoadingProgress(80, 'Adding props and details...')
+    // this.sceneElements = new SceneElements()
+    // this.scene.add(this.sceneElements.getGroup())
+    console.log('Scene elements disabled - removed all extra props')
 
     // Create floor text (Ryan Sario)
+    this.updateLoadingProgress(85, 'Rendering text...')
     this.floorText = new FloorText()
     this.scene.add(this.floorText.getGroup())
     console.log('Floor text created')
@@ -93,11 +103,13 @@ class Engine {
     console.log('Street signs disabled')
 
     // Setup camera controls
+    this.updateLoadingProgress(90, 'Initializing controls...')
     this.controls = new OrbitCameraControls(this.camera, this.renderer.domElement)
     this.controls.setInitialPosition()
     console.log('Camera controls initialized')
 
     // Create main billboard UI
+    this.updateLoadingProgress(95, 'Preparing UI...')
     this.mainBillboardUI = new MainBillboardUI(() => {
       // Callback when UI is closed
       this.controls.returnToOrbit()
@@ -107,11 +119,24 @@ class Engine {
     // Add event listeners
     this.addEventListeners()
 
-    // Hide loading screen
-    this.hideLoadingScreen()
-
-    // Start render loop
+    // Start render loop FIRST
     this.start()
+
+    // Wait for first render to complete
+    this.updateLoadingProgress(98, 'Rendering first frame...')
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          // Wait for 2 frames to ensure rendering is stable
+          resolve()
+        })
+      })
+    })
+
+    // Hide loading screen
+    this.updateLoadingProgress(100, 'Complete! Starting experience...')
+    await new Promise(resolve => setTimeout(resolve, 800)) // Brief pause to show 100%
+    this.hideLoadingScreen()
 
     console.log('Cyberpunk Portfolio initialized successfully!')
   }
@@ -335,6 +360,22 @@ class Engine {
       // Once camera animation is complete, show the UI
       this.mainBillboardUI.show()
     })
+  }
+
+  updateLoadingProgress(percent, message) {
+    const loadingBar = document.getElementById('loading-bar')
+    const loadingPercent = document.getElementById('loading-percent')
+    const loadingSubtitle = document.querySelector('.loading-subtitle')
+
+    if (loadingBar) {
+      loadingBar.style.width = `${percent}%`
+    }
+    if (loadingPercent) {
+      loadingPercent.textContent = `${percent}%`
+    }
+    if (loadingSubtitle && message) {
+      loadingSubtitle.textContent = message
+    }
   }
 
   hideLoadingScreen() {

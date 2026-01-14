@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three'
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 export class CyberpunkStoreModel {
   constructor() {
@@ -72,23 +72,21 @@ export class CyberpunkStoreModel {
   }
 
   /**
-   * Load the FBX model
+   * Load the GLB model
    */
   async load() {
     return new Promise((resolve, reject) => {
-      const loader = new FBXLoader()
+      const loader = new GLTFLoader()
       const textureLoader = new THREE.TextureLoader()
 
-      console.log('Starting to load FBX from: /cyberpunk-store/source/poopy.fbx')
+      console.log('Starting to load GLB from: /cyberpunk_store.glb')
 
       loader.load(
-        '/cyberpunk-store/source/poopy.fbx',
-        (fbx) => {
-          console.log('✅ FBX model loaded successfully!')
+        '/cyberpunk_store.glb',
+        (gltf) => {
+          const fbx = gltf.scene  // Extract scene from GLTF
+          console.log('✅ GLB model loaded successfully!')
           console.log('Model bounding box:', fbx)
-
-          // Load and apply textures
-          this.loadTextures(fbx, textureLoader)
 
           // Calculate bounding box to see actual size
           const box = new THREE.Box3().setFromObject(fbx)
@@ -99,7 +97,7 @@ export class CyberpunkStoreModel {
           fbx.rotation.y = Math.PI
 
           // Scale and position
-          fbx.scale.setScalar(4)
+          fbx.scale.setScalar(450)
           fbx.position.set(0, 1.5, 0)  // Position on platform
 
           console.log('Model scale:', fbx.scale)
@@ -107,9 +105,55 @@ export class CyberpunkStoreModel {
           console.log('Model rotation:', fbx.rotation)
 
           // Enable shadows and ensure materials are visible
+          // Also remove unwanted objects (street pole, cube, arcade machine, etc.)
           let meshCount = 0
+          const objectsToRemove = []
+
+          // First pass - log ALL mesh names to identify what to remove
+          console.log('=== ALL MESHES IN MODEL ===')
           fbx.traverse((child) => {
             if (child.isMesh) {
+              console.log(`Found mesh: "${child.name}"`)
+            }
+          })
+
+          // Second pass - remove unwanted objects and setup materials
+          fbx.traverse((child) => {
+            if (child.isMesh) {
+              const meshName = child.name.toLowerCase()
+              const materialName = child.material?.name?.toLowerCase() || ''
+
+              // WHITELIST APPROACH: Only keep things with these material names
+              // Everything else gets removed
+              const allowedMaterials = [
+                'metal',        // Building metal parts
+                'pantalla',     // Screens
+                'stand',        // Wooden stand
+                'blinn4',       // Building parts
+                'blinn5',       // Building parts
+                'blinn9',       // Building parts
+                'cositas'       // Small details
+              ]
+
+              // Check if material name contains any allowed pattern
+              let isAllowed = false
+              for (const allowedMat of allowedMaterials) {
+                if (materialName.includes(allowedMat)) {
+                  isAllowed = true
+                  break
+                }
+              }
+
+              // If not in whitelist, REMOVE IT
+              if (!isAllowed) {
+                console.log(`🗑️ REMOVING (not in whitelist): "${child.name}" [Material: "${child.material?.name}"]`)
+                objectsToRemove.push(child)
+                return
+              }
+
+              // This object is allowed - keep it
+              console.log(`✓ KEEPING: "${child.name}" [Material: "${child.material?.name}"]`)
+
               child.castShadow = true
               child.receiveShadow = true
 
@@ -125,28 +169,33 @@ export class CyberpunkStoreModel {
               }
 
               meshCount++
-              const materialName = child.material?.name || 'unknown'
-              const worldPos = new THREE.Vector3()
-              child.getWorldPosition(worldPos)
-
-              console.log(`Mesh ${meshCount}: ${child.name}`)
-              console.log(`  Material: ${materialName}`)
-              console.log(`  Position (local): ${child.position.x.toFixed(2)}, ${child.position.y.toFixed(2)}, ${child.position.z.toFixed(2)}`)
-              console.log(`  Position (world): ${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)}`)
-
-              // Highlight screen meshes
-              if (materialName.toLowerCase().includes('pantalla')) {
-                console.log(`  ⭐ THIS IS A SCREEN MESH! Use this position for billboard`)
-              }
             }
           })
-          console.log(`Total meshes found: ${meshCount}`)
+
+          // Remove unwanted objects
+          objectsToRemove.forEach(obj => {
+            if (obj.parent) {
+              obj.parent.remove(obj)
+              console.log(`✓ Removed: ${obj.name}`)
+            }
+          })
+
+          console.log(`Total meshes kept: ${meshCount}`)
+          console.log(`Removed ${objectsToRemove.length} unwanted objects`)
 
           this.model = fbx
           this.group.add(fbx)
 
           console.log('✅ Model added to scene group')
-          resolve()
+
+          // Load textures and wait for them before resolving
+          this.loadTextures(fbx, textureLoader).then(() => {
+            console.log('✅ All textures loaded')
+            resolve()
+          }).catch((error) => {
+            console.error('⚠️ Some textures failed to load:', error)
+            resolve() // Still resolve even if textures fail
+          })
         },
         (progress) => {
           if (progress.total > 0) {
@@ -155,7 +204,7 @@ export class CyberpunkStoreModel {
           }
         },
         (error) => {
-          console.error('❌ Error loading FBX model:', error)
+          console.error('❌ Error loading GLB model:', error)
           console.error('Error details:', error.message)
           // Keep the test box if loading fails
           resolve() // Don't reject, just continue without model
@@ -165,137 +214,51 @@ export class CyberpunkStoreModel {
   }
 
   /**
-   * Load and apply textures to the model (simplified - BaseColor only)
+   * Process materials from GLB (uses embedded textures)
+   * GLB files have materials and textures already embedded
    */
   loadTextures(fbx, textureLoader) {
-    const textureBasePath = '/cyberpunk-store/textures/'
-    console.log('Loading textures from:', textureBasePath)
+    console.log('Processing GLB embedded materials...')
 
-    // First pass: collect all unique material names
+    // Collect material names for debugging
     const materialNames = new Set()
-    fbx.traverse((child) => {
-      if (child.isMesh && child.material) {
-        materialNames.add(child.material.name || 'unnamed')
-      }
-    })
-    console.log('Found material names:', Array.from(materialNames))
+    let meshCount = 0
 
-    // Apply materials with ONLY BaseColor textures (simplified to avoid shader errors)
     fbx.traverse((child) => {
       if (child.isMesh) {
-        const originalMaterialName = child.material?.name || 'unknown'
-        const materialNameLower = originalMaterialName.toLowerCase()
+        meshCount++
 
-        // Create material with default properties
-        const material = new THREE.MeshStandardMaterial({
-          color: 0xffffff,  // White to show texture colors accurately
-          metalness: 0.3,
-          roughness: 0.7,
-          side: THREE.DoubleSide
-        })
+        // GLB materials are already loaded, just enhance them
+        if (child.material) {
+          const materialName = child.material.name || 'unnamed'
+          materialNames.add(materialName)
 
-        // Load ONLY the BaseColor texture for each material type
-        if (materialNameLower.includes('metal')) {
-          console.log('Loading Metal BaseColor texture...')
-          material.map = textureLoader.load(
-            textureBasePath + 'low_poly_Metal_BaseColor.png',
-            (texture) => {
-              console.log('✓ Metal texture loaded')
-              material.needsUpdate = true
-            },
-            undefined,
-            (err) => {
-              console.error('✗ Metal texture failed:', err)
-              material.color.setHex(0x444444)  // Fallback color
+          // Ensure material is double-sided
+          if (Array.isArray(child.material)) {
+            child.material.forEach(mat => {
+              mat.side = THREE.DoubleSide
+            })
+          } else {
+            child.material.side = THREE.DoubleSide
+
+            // Enhance specific materials
+            const materialNameLower = materialName.toLowerCase()
+
+            // Make screens (pantallas) glow cyan
+            if (materialNameLower.includes('pantalla')) {
+              child.material.emissive = new THREE.Color(0x00d9ff)
+              child.material.emissiveIntensity = 0.6
+              console.log('✓ Enhanced screen material:', materialName)
             }
-          )
-          material.metalness = 0.6
-          material.roughness = 0.4
-        } else if (materialNameLower.includes('pantalla')) {
-          // Screens - use cyan emissive instead of texture
-          console.log('Setting Pantallas as emissive cyan...')
-          material.color.setHex(0x00d9ff)
-          material.emissive.setHex(0x00d9ff)
-          material.emissiveIntensity = 0.6
-          material.metalness = 0.1
-          material.roughness = 0.2
-        } else if (materialNameLower.includes('stand')) {
-          console.log('Loading Stand BaseColor texture...')
-          material.map = textureLoader.load(
-            textureBasePath + 'low_poly_Stand_BaseColor.png',
-            (texture) => {
-              console.log('✓ Stand texture loaded')
-              material.needsUpdate = true
-            },
-            undefined,
-            (err) => {
-              console.error('✗ Stand texture failed:', err)
-              material.color.setHex(0x6b4423)  // Fallback brown
-            }
-          )
-          material.metalness = 0.1
-          material.roughness = 0.8
-        } else if (materialNameLower.includes('blinn4')) {
-          console.log('Loading Blinn4 BaseColor texture...')
-          material.map = textureLoader.load(
-            textureBasePath + 'lowppoly_blinn4_BaseColor.png',
-            (texture) => {
-              console.log('✓ Blinn4 texture loaded')
-              material.needsUpdate = true
-            },
-            undefined,
-            (err) => {
-              console.error('✗ Blinn4 texture failed:', err)
-              material.color.setHex(0xffaa00)  // Fallback orange
-            }
-          )
-          material.emissive.setHex(0xffaa00)
-          material.emissiveIntensity = 0.2
-          material.metalness = 0.2
-          material.roughness = 0.6
-        } else if (materialNameLower.includes('blinn5')) {
-          console.log('Loading Blinn5 BaseColor texture...')
-          material.map = textureLoader.load(
-            textureBasePath + 'lowppoly_blinn5_BaseColor.png',
-            (texture) => {
-              console.log('✓ Blinn5 texture loaded')
-              material.needsUpdate = true
-            },
-            undefined,
-            (err) => {
-              console.error('✗ Blinn5 texture failed:', err)
-              material.color.setHex(0x777777)  // Fallback gray
-            }
-          )
-          material.metalness = 0.3
-          material.roughness = 0.6
-        } else if (materialNameLower.includes('blinn9')) {
-          console.log('Loading Blinn9 BaseColor texture...')
-          material.map = textureLoader.load(
-            textureBasePath + 'lowppoly_blinn9_BaseColor.png',
-            (texture) => {
-              console.log('✓ Blinn9 texture loaded')
-              material.needsUpdate = true
-            },
-            undefined,
-            (err) => {
-              console.error('✗ Blinn9 texture failed:', err)
-              material.color.setHex(0x555555)  // Fallback dark gray
-            }
-          )
-          material.metalness = 0.3
-          material.roughness = 0.7
-        } else {
-          // Default fallback for unknown materials
-          console.log('Using default color for:', materialNameLower)
-          material.color.setHex(0x888888)
+          }
         }
-
-        child.material = material
       }
     })
 
-    console.log('Texture loading initiated')
+    console.log(`✅ Processed ${meshCount} meshes with materials:`, Array.from(materialNames))
+
+    // Return resolved promise immediately since GLB has everything embedded
+    return Promise.resolve()
   }
 
   /**
