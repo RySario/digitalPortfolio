@@ -28,10 +28,11 @@ export class OrbitCameraControls {
     this.zoomSpeed = config.zoomSpeed
 
     // Spherical coordinates (orbit around target)
-    this.target = new THREE.Vector3(0, 15, 0) // Look at building center/upper area
-    this.distance = 50 // Distance from target
-    this.azimuthAngle = 0 // Horizontal rotation (start at front view)
-    this.polarAngle = Math.PI / 2.5 // Vertical rotation (looking slightly up)
+    // Target the center of the building model to match the reference image
+    this.target = new THREE.Vector3(-12, 13, 0) // Center of building model
+    this.distance = 42 // Distance from target
+    this.azimuthAngle = 0 // Horizontal rotation (front-center view)
+    this.polarAngle = 1.58 // Vertical rotation (looking up at building from below)
 
     // Mouse state
     this.isDragging = false
