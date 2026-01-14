@@ -140,15 +140,27 @@ export class NeonElements {
     const originalEmissive = material.emissiveIntensity
 
     // Quick flicker off and back on
+    // Animate light intensity
     gsap.timeline()
-      .to([light, material], {
+      .to(light, {
         intensity: originalIntensity * 0.2,
+        duration: this.neonConfig.flicker.flickerDuration,
+        ease: 'power1.in'
+      })
+      .to(light, {
+        intensity: originalIntensity,
+        duration: this.neonConfig.flicker.flickerDuration,
+        ease: 'power1.out'
+      })
+
+    // Animate material emissive intensity
+    gsap.timeline()
+      .to(material, {
         emissiveIntensity: originalEmissive * 0.2,
         duration: this.neonConfig.flicker.flickerDuration,
         ease: 'power1.in'
       })
-      .to([light, material], {
-        intensity: originalIntensity,
+      .to(material, {
         emissiveIntensity: originalEmissive,
         duration: this.neonConfig.flicker.flickerDuration,
         ease: 'power1.out'
@@ -173,15 +185,27 @@ export class NeonElements {
       // Stagger the pulses for variety
       const delay = index * 0.3
 
+      // Animate light intensity
       gsap.timeline({ repeat: -1, delay })
-        .to([light, material], {
+        .to(light, {
           intensity: originalIntensity * pulseConfig.min,
+          duration: pulseConfig.speed,
+          ease: 'sine.inOut'
+        })
+        .to(light, {
+          intensity: originalIntensity * pulseConfig.max,
+          duration: pulseConfig.speed,
+          ease: 'sine.inOut'
+        })
+
+      // Animate material emissive intensity (separate timeline)
+      gsap.timeline({ repeat: -1, delay })
+        .to(material, {
           emissiveIntensity: originalEmissive * pulseConfig.min,
           duration: pulseConfig.speed,
           ease: 'sine.inOut'
         })
-        .to([light, material], {
-          intensity: originalIntensity * pulseConfig.max,
+        .to(material, {
           emissiveIntensity: originalEmissive * pulseConfig.max,
           duration: pulseConfig.speed,
           ease: 'sine.inOut'
