@@ -20,7 +20,7 @@ export default defineConfig({
       }
     }
   },
-  assetsInclude: ['**/*.glb', '**/*.gltf', '**/*.hdr'],
+  assetsInclude: ['**/*.glb', '**/*.gltf', '**/*.hdr', '**/*.fbx', '**/*.png'],
   optimizeDeps: {
     include: ['three', 'gsap']
   }

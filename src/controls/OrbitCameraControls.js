@@ -28,10 +28,10 @@ export class OrbitCameraControls {
     this.zoomSpeed = config.zoomSpeed
 
     // Spherical coordinates (orbit around target)
-    this.target = new THREE.Vector3(0, 10, 0) // Look at building center
-    this.distance = 60 // Distance from target
-    this.azimuthAngle = -Math.PI / 4 // Horizontal rotation (start at 3/4 view)
-    this.polarAngle = Math.PI / 3 // Vertical rotation (start slightly above)
+    this.target = new THREE.Vector3(0, 15, 0) // Look at building center/upper area
+    this.distance = 50 // Distance from target
+    this.azimuthAngle = 0 // Horizontal rotation (start at front view)
+    this.polarAngle = Math.PI / 2.5 // Vertical rotation (looking slightly up)
 
     // Mouse state
     this.isDragging = false
@@ -72,8 +72,12 @@ export class OrbitCameraControls {
   }
 
   onMouseDown(event) {
-    if (!this.enabled || this.isFocused) return
+    if (!this.enabled || this.isFocused) {
+      console.log('Camera controls disabled or focused:', { enabled: this.enabled, isFocused: this.isFocused })
+      return
+    }
 
+    console.log('Mouse down - starting drag')
     this.isDragging = true
     this.previousMousePosition = {
       x: event.clientX,

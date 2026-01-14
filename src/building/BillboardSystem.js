@@ -15,7 +15,8 @@ export class BillboardSystem {
     this.mainBillboard = null
 
     this.createMainBillboard()
-    this.createPortfolioBillboards()
+    // Portfolio billboards removed as requested
+    // this.createPortfolioBillboards()
   }
 
   /**

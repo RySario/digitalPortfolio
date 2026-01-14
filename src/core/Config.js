@@ -9,13 +9,13 @@ export const Config = {
     fov: 60,
     near: 0.1,
     far: 1000,
-    // Initial position - zoomed in, lower, looking up at building
-    startPosition: { x: -30, y: 8, z: 30 },
-    lookAt: { x: 0, y: 12, z: 0 },
+    // Initial position - front view, looking up at building
+    startPosition: { x: 0, y: 3, z: 45 },
+    lookAt: { x: 0, y: 12, z: 0 },  // Looking up at top of building
 
     // Focus position when viewing main billboard
-    focusPosition: { x: 0, y: 15, z: 35 },
-    focusLookAt: { x: 0, y: 15, z: 0 }
+    focusPosition: { x: 0, y: 18, z: 35 },
+    focusLookAt: { x: 0, y: 18, z: 0 }
   },
 
   // Orbit camera controls
@@ -26,7 +26,7 @@ export const Config = {
     minDistance: 25,
     maxDistance: 80,
     minPolarAngle: Math.PI / 6,    // Prevent too steep top-down
-    maxPolarAngle: Math.PI * 0.45,  // Prevent going below platform
+    maxPolarAngle: Math.PI * 0.48,  // Prevent going below platform
     smoothness: 0.1,
     zoomSpeed: 0.5
   },
@@ -81,13 +81,13 @@ export const Config = {
 
   // Billboard/Screen configuration
   billboards: {
-    // Main interactive billboard (front of building)
+    // Main interactive billboard (top of building, facing front)
     main: {
-      width: 12,
-      height: 7,
-      position: { x: 0, y: 12, z: 6.1 },
+      width: 8,
+      height: 5,
+      position: { x: 0, y: 22, z: 6 },  // Top of building
       rotation: { x: 0, y: 0, z: 0 },
-      emissiveIntensity: 0.3,
+      emissiveIntensity: 0.5,
       interactive: true
     },
 
@@ -212,12 +212,12 @@ export const Config = {
     ]
   },
 
-  // Floor text
+  // Floor text - positioned to the right, under arcade machine
   floorText: {
     name: {
       text: 'RYAN SARIO',
-      position: { x: 0, y: 1.6, z: 15 },
-      rotation: { x: -Math.PI / 2, y: 0, z: 0 },
+      position: { x: 8, y: 1.6, z: -5 },  // Right side, near arcade
+      rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
       fontSize: 2.5,
       color: 0xffffff,  // Neon white
       emissiveIntensity: 1.0
@@ -225,25 +225,25 @@ export const Config = {
     subtitles: [
       {
         text: 'Software Engineer',
-        position: { x: 0, y: 1.6, z: 18 },
-        rotation: { x: -Math.PI / 2, y: 0, z: 0 },
-        fontSize: 1.0,  // Larger font
+        position: { x: 10.5, y: 1.6, z: -5 },  // Stacked vertically
+        rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
+        fontSize: 1.5,
         color: 0xffffff,  // Neon white
         emissiveIntensity: 0.9
       },
       {
         text: 'Quality Engineer',
-        position: { x: 0, y: 1.6, z: 20.5 },  // Stacked vertically
-        rotation: { x: -Math.PI / 2, y: 0, z: 0 },
-        fontSize: 1.0,  // Larger font
+        position: { x: 13, y: 1.6, z: -5 },  // Stacked vertically
+        rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
+        fontSize: 1.5,
         color: 0xffffff,  // Neon white
         emissiveIntensity: 0.9
       },
       {
         text: 'Content Creator',
-        position: { x: 0, y: 1.6, z: 23 },  // Stacked vertically
-        rotation: { x: -Math.PI / 2, y: 0, z: 0 },
-        fontSize: 1.0,  // Larger font
+        position: { x: 15.5, y: 1.6, z: -5 },  // Stacked vertically
+        rotation: { x: -Math.PI / 2, y: 0, z: 1.5 },
+        fontSize: 1.5,
         color: 0xffffff,  // Neon white
         emissiveIntensity: 0.9
       }
@@ -277,68 +277,75 @@ export const Config = {
   // Cyberpunk lighting
   lighting: {
     ambient: {
-      color: 0x4455aa,  // Slight blue tint
-      intensity: 0.5  // Increased from 0.15 for better visibility
+      color: 0xffffff,  // White for better visibility
+      intensity: 1.2  // Much brighter ambient light
+    },
+
+    // Directional light from above (like sunlight/moonlight)
+    directional: {
+      color: 0xffffff,
+      intensity: 2.0,
+      position: { x: 10, y: 50, z: 20 }
     },
 
     // Main atmospheric lights
     neonLights: [
       {
-        color: 0x9b59b6,  // Purple
-        position: { x: -10, y: 15, z: 10 },
-        intensity: 5,  // Increased from 4
-        distance: 50,  // Increased from 40
+        color: 0xff0080,  // Neon pink
+        position: { x: -15, y: 20, z: 15 },
+        intensity: 15,  // Much brighter
+        distance: 80,
         decay: 2
       },
       {
-        color: 0x3498db,  // Blue
-        position: { x: 10, y: 12, z: 8 },
-        intensity: 4.5,  // Increased from 3.5
-        distance: 45,  // Increased from 35
+        color: 0x00d9ff,  // Neon blue
+        position: { x: 15, y: 20, z: 15 },
+        intensity: 15,  // Much brighter
+        distance: 80,
         decay: 2
       },
       {
-        color: 0x00d9ff,  // Cyan
-        position: { x: 0, y: 20, z: -10 },
-        intensity: 4,  // Increased from 3
-        distance: 40,  // Increased from 30
+        color: 0xff0080,  // Neon pink
+        position: { x: 0, y: 25, z: -15 },
+        intensity: 12,
+        distance: 70,
         decay: 2
       },
       {
-        color: 0xff00ff,  // Pink accent
-        position: { x: -8, y: 8, z: -5 },
-        intensity: 3.5,  // Increased from 2.5
-        distance: 35,  // Increased from 25
+        color: 0x00d9ff,  // Neon blue
+        position: { x: -10, y: 10, z: -10 },
+        intensity: 10,
+        distance: 60,
         decay: 2
       }
     ],
 
     // Subtle fill light to prevent pure black shadows
     fillLight: {
-      color: 0x8e44ad,
-      intensity: 0.6  // Increased from 0.3
+      color: 0xccccff,
+      intensity: 1.5  // Much brighter
     },
 
     // Spotlights for additional illumination
     spotlights: [
       {
-        color: 0x9b59b6,  // Purple
-        position: { x: -20, y: 30, z: 20 },
-        target: { x: 0, y: 0, z: 0 },
-        intensity: 3,
-        angle: Math.PI / 4,
-        penumbra: 0.3,
-        distance: 80,
+        color: 0xff0080,  // Neon pink
+        position: { x: -25, y: 40, z: 25 },
+        target: { x: 0, y: 5, z: 0 },
+        intensity: 8,  // Much brighter
+        angle: Math.PI / 3,
+        penumbra: 0.2,
+        distance: 100,
         decay: 1.5
       },
       {
-        color: 0x3498db,  // Blue
-        position: { x: 20, y: 30, z: 20 },
-        target: { x: 0, y: 0, z: 0 },
-        intensity: 3,
-        angle: Math.PI / 4,
-        penumbra: 0.3,
-        distance: 80,
+        color: 0x00d9ff,  // Neon blue
+        position: { x: 25, y: 40, z: 25 },
+        target: { x: 0, y: 5, z: 0 },
+        intensity: 8,  // Much brighter
+        angle: Math.PI / 3,
+        penumbra: 0.2,
+        distance: 100,
         decay: 1.5
       }
     ]

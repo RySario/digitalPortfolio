@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { Config } from './Config.js'
 import { AssetLoader } from './AssetLoader.js'
 import { OrbitCameraControls } from '../controls/OrbitCameraControls.js'
-import { CyberpunkBuilding } from '../building/CyberpunkBuilding.js'
+import { CyberpunkStoreModel } from '../building/CyberpunkStoreModel.js'
 import { NeonElements } from '../building/NeonElements.js'
 import { BillboardSystem } from '../building/BillboardSystem.js'
 import { SceneElements } from '../scene/SceneElements.js'
@@ -62,15 +62,16 @@ class Engine {
     await this.assetLoader.loadAll()
     console.log('Assets loaded')
 
-    // Create building
-    this.building = new CyberpunkBuilding()
+    // Load cyberpunk store model
+    this.building = new CyberpunkStoreModel()
+    await this.building.load()
     this.scene.add(this.building.getGroup())
-    console.log('Building created')
+    console.log('Cyberpunk store model loaded and added to scene')
 
-    // Create neon elements
-    this.neonElements = new NeonElements()
-    this.scene.add(this.neonElements.getGroup())
-    console.log('Neon elements created')
+    // Neon elements temporarily disabled to clean up scene
+    // this.neonElements = new NeonElements()
+    // this.scene.add(this.neonElements.getGroup())
+    console.log('Neon elements disabled')
 
     // Create billboard system
     this.billboardSystem = new BillboardSystem()
@@ -87,9 +88,9 @@ class Engine {
     this.scene.add(this.floorText.getGroup())
     console.log('Floor text created')
 
-    // Create street signs (attached to street lamp)
-    this.streetSigns = new StreetSigns(this.sceneElements.getStreetLightGroup())
-    console.log('Street signs created')
+    // Street signs temporarily disabled to clean up scene
+    // this.streetSigns = new StreetSigns(this.sceneElements.getStreetLightGroup())
+    console.log('Street signs disabled')
 
     // Setup camera controls
     this.controls = new OrbitCameraControls(this.camera, this.renderer.domElement)
@@ -161,13 +162,37 @@ class Engine {
   }
 
   setupLights() {
-    // Ambient light (very low for cyberpunk atmosphere)
+    // Ambient light (bright for visibility)
     const ambientConfig = Config.lighting.ambient
     const ambientLight = new THREE.AmbientLight(
       ambientConfig.color,
       ambientConfig.intensity
     )
     this.scene.add(ambientLight)
+
+    // Directional light from above
+    if (Config.lighting.directional) {
+      const dirConfig = Config.lighting.directional
+      const directionalLight = new THREE.DirectionalLight(
+        dirConfig.color,
+        dirConfig.intensity
+      )
+      directionalLight.position.set(
+        dirConfig.position.x,
+        dirConfig.position.y,
+        dirConfig.position.z
+      )
+      directionalLight.castShadow = true
+      directionalLight.shadow.mapSize.width = 2048
+      directionalLight.shadow.mapSize.height = 2048
+      directionalLight.shadow.camera.near = 0.5
+      directionalLight.shadow.camera.far = 200
+      directionalLight.shadow.camera.left = -50
+      directionalLight.shadow.camera.right = 50
+      directionalLight.shadow.camera.top = 50
+      directionalLight.shadow.camera.bottom = -50
+      this.scene.add(directionalLight)
+    }
 
     // Neon point lights
     Config.lighting.neonLights.forEach(lightConfig => {
@@ -258,25 +283,25 @@ class Engine {
     // Update raycaster
     this.raycaster.setFromCamera(this.mouse, this.camera)
 
-    // Check for intersection with street signs first
-    if (this.streetSigns) {
-      const interactiveSigns = this.streetSigns.getInteractiveSigns()
-      const signIntersects = this.raycaster.intersectObjects(interactiveSigns, true)
-
-      if (signIntersects.length > 0) {
-        // Find the sign group
-        let signObject = signIntersects[0].object
-        while (signObject.parent && !signObject.userData.action) {
-          signObject = signObject.parent
-        }
-
-        if (signObject.userData.action === 'openMainBillboard') {
-          console.log('Street sign clicked!')
-          this.onMainBillboardClick()
-          return
-        }
-      }
-    }
+    // Street signs disabled for now
+    // if (this.streetSigns) {
+    //   const interactiveSigns = this.streetSigns.getInteractiveSigns()
+    //   const signIntersects = this.raycaster.intersectObjects(interactiveSigns, true)
+    //
+    //   if (signIntersects.length > 0) {
+    //     // Find the sign group
+    //     let signObject = signIntersects[0].object
+    //     while (signObject.parent && !signObject.userData.action) {
+    //       signObject = signObject.parent
+    //     }
+    //
+    //     if (signObject.userData.action === 'openMainBillboard') {
+    //       console.log('Street sign clicked!')
+    //       this.onMainBillboardClick()
+    //       return
+    //     }
+    //   }
+    // }
 
     // Check for intersection with main billboard
     const mainBillboard = this.billboardSystem.getMainBillboard()
