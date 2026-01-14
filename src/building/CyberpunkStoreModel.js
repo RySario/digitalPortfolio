@@ -127,7 +127,7 @@ export class CyberpunkStoreModel {
               // Everything else gets removed
               const allowedMaterials = [
                 'metal',        // Building metal parts
-                'pantalla',     // Screens
+                'pantalla',     // Screens - keep the physical billboard
                 'stand',        // Wooden stand
                 'blinn4',       // Building parts
                 'blinn5',       // Building parts
@@ -228,7 +228,7 @@ export class CyberpunkStoreModel {
       if (child.isMesh) {
         meshCount++
 
-        // GLB materials are already loaded, just enhance them
+        // GLB materials are already loaded, just ensure double-sided
         if (child.material) {
           const materialName = child.material.name || 'unnamed'
           materialNames.add(materialName)
@@ -240,16 +240,6 @@ export class CyberpunkStoreModel {
             })
           } else {
             child.material.side = THREE.DoubleSide
-
-            // Enhance specific materials
-            const materialNameLower = materialName.toLowerCase()
-
-            // Make screens (pantallas) glow cyan
-            if (materialNameLower.includes('pantalla')) {
-              child.material.emissive = new THREE.Color(0x00d9ff)
-              child.material.emissiveIntensity = 0.6
-              console.log('✓ Enhanced screen material:', materialName)
-            }
           }
         }
       }
