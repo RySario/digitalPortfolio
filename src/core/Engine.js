@@ -86,6 +86,10 @@ class Engine {
     this.scene.add(this.billboardSystem.getGroup())
     console.log('Billboard system created')
 
+    // Start loading billboard content from BillboardContent.js config
+    this.billboardSystem.startContentCycling()
+    console.log('Billboard content cycling started') 
+
     // Scene elements disabled - removed all extra props
     this.updateLoadingProgress(80, 'Adding props and details...')
     // this.sceneElements = new SceneElements()
