@@ -171,7 +171,7 @@ const CONFIG = {
   },
 
   // Files
-  resumeFile: "resume.pdf", // Add your resume file to the root folder
+  resumeFile: "media/Ryan_Sario.pdf", // Add your resume file to the root folder
 
   // Three.js Scene Configuration
   scene: {
