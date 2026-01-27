@@ -3,280 +3,148 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Cyberpunk-themed 3D portfolio with interactive billboard displays">
-  <title>Cyberpunk Portfolio - Interactive 3D Experience</title>
-  <link rel="stylesheet" href="/src/styles/billboard-ui.css">
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+  <meta name="description" content="Digital Portfolio - Modern, interactive developer portfolio">
+  <title>Digital Portfolio</title>
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      overflow: hidden;
-      background: #000;
-    }
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css">
 
-    #canvas-container {
-      width: 100vw;
-      height: 100vh;
-      position: fixed;
-      top: 0;
-      left: 0;
-    }
+  <!-- Three.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    #loading-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at center, #1a0a3e 0%, #0a0a14 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      transition: opacity 0.5s ease;
-      overflow: hidden;
-    }
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    #loading-screen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    /* Animated background particles */
-    .bg-particles {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .particle {
-      position: absolute;
-      background: rgba(0, 217, 255, 0.3);
-      border-radius: 50%;
-      animation: float 15s infinite ease-in-out;
-    }
-
-    @keyframes float {
-      0%, 100% {
-        transform: translateY(0) translateX(0);
-        opacity: 0;
-      }
-      10% {
-        opacity: 0.5;
-      }
-      50% {
-        transform: translateY(-100vh) translateX(50px);
-        opacity: 0.3;
-      }
-      90% {
-        opacity: 0.1;
-      }
-    }
-
-    /* 3D Cube container */
-    .cube-container {
-      perspective: 1000px;
-      margin-bottom: 40px;
-    }
-
-    .cube {
-      width: 100px;
-      height: 100px;
-      position: relative;
-      transform-style: preserve-3d;
-      animation: rotateCube 3s infinite linear;
-    }
-
-    @keyframes rotateCube {
-      0% {
-        transform: rotateX(0deg) rotateY(0deg);
-      }
-      100% {
-        transform: rotateX(360deg) rotateY(360deg);
-      }
-    }
-
-    .cube-face {
-      position: absolute;
-      width: 100px;
-      height: 100px;
-      background: linear-gradient(135deg, rgba(155, 89, 182, 0.9), rgba(0, 217, 255, 0.9));
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      color: white;
-      box-shadow: 0 0 20px rgba(0, 217, 255, 0.5);
-    }
-
-    .cube-face.front  { transform: translateZ(50px); }
-    .cube-face.back   { transform: translateZ(-50px) rotateY(180deg); }
-    .cube-face.right  { transform: rotateY(90deg) translateZ(50px); }
-    .cube-face.left   { transform: rotateY(-90deg) translateZ(50px); }
-    .cube-face.top    { transform: rotateX(90deg) translateZ(50px); }
-    .cube-face.bottom { transform: rotateX(-90deg) translateZ(50px); }
-
-    /* Loading text */
-    .loading-title {
-      color: white;
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-      letter-spacing: 4px;
-      text-shadow: 0 0 20px rgba(0, 217, 255, 0.8);
-      animation: pulse 2s infinite ease-in-out;
-    }
-
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-        text-shadow: 0 0 20px rgba(0, 217, 255, 0.8);
-      }
-      50% {
-        opacity: 0.7;
-        text-shadow: 0 0 30px rgba(155, 89, 182, 0.8);
-      }
-    }
-
-    .loading-subtitle {
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 16px;
-      margin-bottom: 30px;
-      font-weight: 300;
-      animation: dots 1.5s infinite;
-    }
-
-    @keyframes dots {
-      0%, 20% { content: ''; }
-      40% { content: '.'; }
-      60% { content: '..'; }
-      80%, 100% { content: '...'; }
-    }
-
-    .loading-subtitle::after {
-      content: '...';
-      animation: dots 1.5s infinite;
-    }
-
-    /* Progress bar */
-    .loading-bar-container {
-      width: 400px;
-      height: 6px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 3px;
-      overflow: hidden;
-      position: relative;
-      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-    }
-
-    .loading-bar {
-      height: 100%;
-      background: linear-gradient(90deg, #00d9ff, #9b59b6, #ff0080);
-      background-size: 200% 100%;
-      width: 0%;
-      transition: width 0.3s ease;
-      box-shadow: 0 0 15px rgba(0, 217, 255, 0.9);
-      animation: shimmer 2s infinite linear;
-    }
-
-    @keyframes shimmer {
-      0% {
-        background-position: 0% 50%;
-      }
-      100% {
-        background-position: 200% 50%;
-      }
-    }
-
-    .loading-percent {
-      color: white;
-      font-size: 14px;
-      margin-top: 10px;
-      font-weight: 500;
-      opacity: 0.8;
-    }
-
-    .controls-hint {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: white;
-      font-size: 14px;
-      text-align: center;
-      z-index: 100;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 12px 24px;
-      border-radius: 8px;
-      backdrop-filter: blur(10px);
-    }
-
-    .controls-hint p {
-      margin: 4px 0;
-    }
-  </style>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div id="loading-screen">
-    <!-- Animated background particles -->
-    <div class="bg-particles">
-      <div class="particle" style="width: 3px; height: 3px; left: 10%; top: 20%; animation-delay: 0s;"></div>
-      <div class="particle" style="width: 4px; height: 4px; left: 20%; top: 80%; animation-delay: 2s;"></div>
-      <div class="particle" style="width: 2px; height: 2px; left: 30%; top: 40%; animation-delay: 4s;"></div>
-      <div class="particle" style="width: 5px; height: 5px; left: 40%; top: 60%; animation-delay: 1s;"></div>
-      <div class="particle" style="width: 3px; height: 3px; left: 50%; top: 90%; animation-delay: 3s;"></div>
-      <div class="particle" style="width: 4px; height: 4px; left: 60%; top: 30%; animation-delay: 5s;"></div>
-      <div class="particle" style="width: 2px; height: 2px; left: 70%; top: 70%; animation-delay: 2.5s;"></div>
-      <div class="particle" style="width: 5px; height: 5px; left: 80%; top: 50%; animation-delay: 4.5s;"></div>
-      <div class="particle" style="width: 3px; height: 3px; left: 90%; top: 10%; animation-delay: 1.5s;"></div>
-    </div>
 
-    <!-- 3D Spinning Cube -->
-    <div class="cube-container">
-      <div class="cube">
-        <div class="cube-face front">R</div>
-        <div class="cube-face back">S</div>
-        <div class="cube-face right">3</div>
-        <div class="cube-face left">D</div>
-        <div class="cube-face top">▲</div>
-        <div class="cube-face bottom">▼</div>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <ul class="nav-links">
+      <li><a href="#hero">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#hobbies">Hobbies</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+    <div class="nav-toggle">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </nav>
+
+  <!-- Hero Section with Three.js Background -->
+  <section id="hero" class="hero-section">
+    <canvas id="three-canvas"></canvas>
+    <div class="hero-content">
+      <h1 class="hero-title">
+        <span class="glitch" data-text="Loading...">Loading...</span>
+      </h1>
+      <p class="hero-tagline">Loading...</p>
+      <div class="scroll-indicator">
+        <span>Scroll to Explore</span>
+        <div class="scroll-arrow">↓</div>
       </div>
     </div>
+  </section>
 
-    <!-- Loading text -->
-    <div class="loading-title">Booting Up</div>
-    <div class="loading-subtitle">Initializing cyberpunk systems</div>
+  <!-- About Me Section -->
+  <section id="about" class="about-section">
+    <div class="container">
+      <h2 class="section-title">
+        <span class="title-number">01.</span> About Me
+      </h2>
+      <div class="about-content">
+        <!-- Media Gallery -->
+        <div class="media-gallery">
+          <!-- Will be populated by JavaScript -->
+        </div>
 
-    <!-- Progress bar -->
-    <div class="loading-bar-container">
-      <div class="loading-bar" id="loading-bar"></div>
+        <!-- Description Panel -->
+        <div class="about-description">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
     </div>
-    <div class="loading-percent" id="loading-percent">0%</div>
-  </div>
+  </section>
 
-  <div id="canvas-container"></div>
+  <!-- GitHub Projects Section -->
+  <section id="projects" class="projects-section">
+    <div class="container">
+      <h2 class="section-title">
+        <span class="title-number">02.</span> GitHub Projects
+      </h2>
+      <div class="projects-grid">
+        <!-- Will be populated by JavaScript from GitHub API -->
+        <div class="loading-spinner">Loading projects...</div>
+      </div>
+    </div>
+  </section>
 
-  <!-- Billboard UI Container -->
-  <div id="billboard-ui">
-    <div class="tabs"></div>
-    <div class="content"></div>
-    <button class="close-button">&times;</button>
-  </div>
+  <!-- Hobbies & Interests Section -->
+  <section id="hobbies" class="hobbies-section">
+    <div class="container">
+      <h2 class="section-title">
+        <span class="title-number">03.</span> Hobbies & Interests
+      </h2>
 
-  <div class="controls-hint">
-    <p><strong>Click & Drag</strong> to rotate camera | <strong>Scroll</strong> to zoom</p>
-    <p><strong>Click the main billboard</strong> to view portfolio</p>
-  </div>
+      <!-- Social Links -->
+      <div class="social-links">
+        <!-- Will be populated by JavaScript -->
+      </div>
 
-  <script type="module" src="/src/main.js"></script>
+      <!-- Hobbies Grid -->
+      <div class="hobbies-grid">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section id="contact" class="contact-section">
+    <div class="container">
+      <h2 class="section-title">
+        <span class="title-number">04.</span> Get In Touch
+      </h2>
+      <div class="contact-card">
+        <p class="contact-intro">
+          I'm always interested in hearing about new projects and opportunities.
+          Whether you have a question or just want to say hi, feel free to reach out!
+        </p>
+        <div class="contact-buttons">
+          <a href="mailto:loading@example.com" class="contact-btn" id="email-btn">
+            <i class="fas fa-envelope"></i>
+            <span>Send Email</span>
+          </a>
+          <a href="#" class="contact-btn" id="resume-btn" download>
+            <i class="fas fa-file-download"></i>
+            <span>Download Resume</span>
+          </a>
+          <a href="#" class="contact-btn" id="github-btn" target="_blank" rel="noopener">
+            <i class="fab fa-github"></i>
+            <span>View GitHub</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Designed & Built with <span class="heart">❤️</span></p>
+    <p class="footer-tech">Three.js × JavaScript × CSS</p>
+  </footer>
+
+  <!-- Load JavaScript Modules -->
+  <script type="module" src="js/config.js"></script>
+  <script type="module" src="js/threeScene.js"></script>
+  <script type="module" src="js/github.js"></script>
+  <script type="module" src="js/main.js"></script>
+
 </body>
 </html>

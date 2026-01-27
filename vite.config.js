@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
 
 export default defineConfig({
   server: {
@@ -6,22 +6,8 @@ export default defineConfig({
     open: true
   },
   build: {
-    target: 'esnext',
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true,
-    minify: 'terser',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          three: ['three'],
-          gsap: ['gsap']
-        }
-      }
-    }
-  },
-  assetsInclude: ['**/*.glb', '**/*.gltf', '**/*.hdr', '**/*.fbx', '**/*.png'],
-  optimizeDeps: {
-    include: ['three', 'gsap']
+    minify: 'terser'
   }
-})
+});
