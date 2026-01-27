@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(ffmpeg:*)",
+      "Bash(winget install:*)",
+      "Bash(for file in *.mp3)",
+      "Bash(do echo \"Trimming $file...\")",
+      "Bash(where:*)",
+      "Bash(powershell.exe -Command \"Get-Command ffmpeg | Select-Object -ExpandProperty Source\")"
+    ]
+  }
+}
