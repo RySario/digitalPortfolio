@@ -1,0 +1,6 @@
+.claude
+# Backup folders
+**/original_backups/
+music/original_backups/
+media/original_backups/
+.claude/settings.local.json

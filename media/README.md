@@ -33,7 +33,7 @@ Then update `js/config.js` to reference them:
 
 ```javascript
 mediaFiles: [
-  { type: "image", src: "media/photo1.jpg", alt: "Description" },
+  { type: "image", src: "media/LydiaRyanGrad.jpg", alt: "Description" },
   { type: "image", src: "media/photo2.jpg", alt: "Description" },
   { type: "video", src: "media/video1.mp4", alt: "Description" },
 ]

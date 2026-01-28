@@ -61,6 +61,9 @@ class ThreeScene {
     const colors = new Float32Array(particleCount * 3);
     const sizes = new Float32Array(particleCount);
 
+    // Store original positions to prevent drift
+    this.originalPositions = new Float32Array(particleCount * 3);
+
     // Color palette from config
     const colorPalette = [
       new THREE.Color(CONFIG.scene.colorScheme.primary),
@@ -76,9 +79,18 @@ class ThreeScene {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.random() * Math.PI;
 
-      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i3 + 2] = radius * Math.cos(phi);
+      const x = radius * Math.sin(phi) * Math.cos(theta);
+      const y = radius * Math.sin(phi) * Math.sin(theta);
+      const z = radius * Math.cos(phi);
+
+      positions[i3] = x;
+      positions[i3 + 1] = y;
+      positions[i3 + 2] = z;
+
+      // Store original positions
+      this.originalPositions[i3] = x;
+      this.originalPositions[i3 + 1] = y;
+      this.originalPositions[i3 + 2] = z;
 
       // Colors - randomly pick from palette
       const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
@@ -259,7 +271,7 @@ class ThreeScene {
     requestAnimationFrame(() => this.animate());
     this.time += 0.01;
 
-    // Enhanced camera movement - slow cinematic drift + mouse parallax
+    // Enhanced camera movement - slow cinematic drift + mouse parallax (bounded)
     const driftX = Math.sin(this.time * 0.1) * 2;
     const driftY = Math.cos(this.time * 0.15) * 2;
 
@@ -273,52 +285,54 @@ class ThreeScene {
     this.camera.rotation.z = Math.sin(this.time * 0.05) * 0.01;
     this.camera.lookAt(this.scene.position);
 
-    // Dynamic particle rotation - varies with time
-    const animSpeed = CONFIG.scene.animationSpeed || 0.0005;
-    const speedVariation = Math.sin(this.time * 0.2) * 0.0002;
-    this.particles.rotation.x += animSpeed + speedVariation;
-    this.particles.rotation.y += (animSpeed * 1.5) + speedVariation;
-    this.particles.rotation.z += animSpeed * 0.5;
+    // Oscillating particle rotation - stays within bounds instead of accumulating
+    this.particles.rotation.x = Math.sin(this.time * 0.05) * 0.3;
+    this.particles.rotation.y = Math.cos(this.time * 0.03) * 0.3;
+    this.particles.rotation.z = Math.sin(this.time * 0.04) * 0.2;
 
-    // Animate geometric shapes with organic movement
+    // Animate geometric shapes with organic movement (bounded)
     this.scene.children.forEach((child, index) => {
       if (child.userData.rotationSpeed) {
         child.rotation.x += child.userData.rotationSpeed.x;
         child.rotation.y += child.userData.rotationSpeed.y;
         child.rotation.z += child.userData.rotationSpeed.z;
 
-        // Add floating motion to shapes
-        child.position.y += Math.sin(this.time * 0.3 + index) * 0.05;
-        child.position.x += Math.cos(this.time * 0.2 + index) * 0.03;
+        // Add bounded floating motion to shapes - oscillates around original position
+        if (!child.userData.originalPosition) {
+          child.userData.originalPosition = {
+            x: child.position.x,
+            y: child.position.y,
+            z: child.position.z
+          };
+        }
+        child.position.y = child.userData.originalPosition.y + Math.sin(this.time * 0.3 + index) * 5;
+        child.position.x = child.userData.originalPosition.x + Math.cos(this.time * 0.2 + index) * 3;
       }
     });
 
-    // Enhanced particle wave motion with multiple frequencies
+    // Enhanced particle wave motion with multiple frequencies (bounded to original positions)
     const positions = this.particleGeometry.attributes.position.array;
     const colors = this.particleGeometry.attributes.color.array;
 
     for (let i = 0; i < positions.length; i += 3) {
       const i3 = i;
-      const x = positions[i3];
-      const y = positions[i3 + 1];
-      const z = positions[i3 + 2];
+      // Use original positions to prevent drift
+      const origX = this.originalPositions[i3];
+      const origY = this.originalPositions[i3 + 1];
+      const origZ = this.originalPositions[i3 + 2];
 
-      // Complex wave motion
-      const wave1 = Math.sin(this.time + x * 0.01) * 0.2;
-      const wave2 = Math.cos(this.time * 0.7 + z * 0.01) * 0.15;
-      const wave3 = Math.sin(this.time * 1.3 + y * 0.01) * 0.1;
+      // Complex wave motion applied to original positions
+      const wave1 = Math.sin(this.time + origX * 0.01) * 2;
+      const wave2 = Math.cos(this.time * 0.7 + origZ * 0.01) * 1.5;
+      const wave3 = Math.sin(this.time * 1.3 + origY * 0.01) * 1;
 
-      positions[i3 + 1] = y + wave1 + wave2 + wave3;
-
-      // Subtle color pulsing
-      const pulse = Math.sin(this.time + i * 0.001) * 0.05;
-      colors[i3] = Math.min(1, colors[i3] + pulse);
-      colors[i3 + 1] = Math.min(1, colors[i3 + 1] + pulse);
-      colors[i3 + 2] = Math.min(1, colors[i3 + 2] + pulse);
+      // Update positions based on original + waves
+      positions[i3] = origX + wave1 * 0.3;
+      positions[i3 + 1] = origY + (wave1 + wave2 + wave3);
+      positions[i3 + 2] = origZ + wave3 * 0.3;
     }
 
     this.particleGeometry.attributes.position.needsUpdate = true;
-    this.particleGeometry.attributes.color.needsUpdate = true;
 
     // Render scene
     this.renderer.render(this.scene, this.camera);
