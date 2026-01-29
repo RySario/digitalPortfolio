@@ -3,8 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Digital Portfolio - Modern, interactive developer portfolio">
-  <title>Digital Portfolio</title>
+  <meta name="description" content="Ryan Sario - Software Developer & Creative Technologist specializing in Quality Engineering, Full-Stack Development, and Agentic AI workflows">
+  <title>Ryan Sario - Software Developer & Creative Technologist</title>
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://rysario.github.io/digitalPortfolio">
+  <meta property="og:title" content="Ryan Sario - Software Developer & Creative Technologist">
+  <meta property="og:description" content="Quality Engineer specializing in Full-Stack Development and Agentic AI workflows">
+  <meta property="og:image" content="https://rysario.github.io/digitalPortfolio/media/og-preview.jpg">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://rysario.github.io/digitalPortfolio">
+  <meta name="twitter:title" content="Ryan Sario - Software Developer & Creative Technologist">
+  <meta name="twitter:description" content="Quality Engineer specializing in Full-Stack Development and Agentic AI">
+  <meta name="twitter:image" content="https://rysario.github.io/digitalPortfolio/media/og-preview.jpg">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" href="/favicon.ico">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#d4af37">
 
   <!-- Main Stylesheet -->
   <link rel="stylesheet" href="style.css">
@@ -19,6 +39,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Ryan Sario",
+    "jobTitle": "Software Developer & Creative Technologist",
+    "description": "Quality Engineer specializing in Full-Stack Development and Agentic AI workflows",
+    "url": "https://rysario.github.io/digitalPortfolio",
+    "sameAs": [
+      "https://github.com/RySario",
+      "https://www.linkedin.com/in/ryan-sario/",
+      "https://www.instagram.com/ry.sario/",
+      "https://tiktok.com/@rysario"
+    ]
+  }
+  </script>
 </head>
 <body>
 
@@ -27,6 +65,7 @@
     <ul class="nav-links">
       <li><a href="#hero">Home</a></li>
       <li><a href="#about">About</a></li>
+      <li><a href="#experience">Experience</a></li>
       <li><a href="#projects">Projects</a></li>
       <li><a href="#socials">Socials</a></li>
       <li><a href="#music">Music</a></li>
@@ -74,11 +113,23 @@
     </div>
   </section>
 
+  <!-- Experience Section -->
+  <section id="experience" class="experience-section">
+    <div class="container">
+      <h2 class="section-title">
+        <span class="title-number">02.</span> Experience
+      </h2>
+      <div class="experience-timeline">
+        <!-- Will be populated by JavaScript -->
+      </div>
+    </div>
+  </section>
+
   <!-- GitHub Projects Section -->
   <section id="projects" class="projects-section">
     <div class="container">
       <h2 class="section-title">
-        <span class="title-number">02.</span> GitHub Projects
+        <span class="title-number">03.</span> GitHub Projects
       </h2>
       <div class="projects-grid">
         <!-- Will be populated by JavaScript from GitHub API -->
@@ -91,7 +142,7 @@
   <section id="socials" class="socials-section">
     <div class="container">
       <h2 class="section-title">
-        <span class="title-number">03.</span> Follow My Journey
+        <span class="title-number">04.</span> Follow My Journey
       </h2>
 
       <!-- Social Preview Cards -->
@@ -105,7 +156,7 @@
   <section id="music" class="music-section">
     <div class="container">
       <h2 class="section-title">
-        <span class="title-number">04.</span> Now Playing
+        <span class="title-number">05.</span> Now Playing
       </h2>
       <p class="music-intro">Music that keeps me motivated and inspired</p>
 
@@ -120,7 +171,7 @@
   <section id="contact" class="contact-section">
     <div class="container">
       <h2 class="section-title">
-        <span class="title-number">05.</span> Get In Touch
+        <span class="title-number">06.</span> Get In Touch
       </h2>
       <div class="contact-card">
         <p class="contact-intro">

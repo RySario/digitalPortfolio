@@ -17,8 +17,6 @@ class Portfolio {
   }
 
   async init() {
-    console.log('🚀 Initializing Digital Portfolio...');
-
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.setup());
@@ -47,10 +45,9 @@ class Portfolio {
       }
 
       this.isInitialized = true;
-      console.log('✅ Portfolio initialized successfully!');
 
     } catch (error) {
-      console.error('❌ Error initializing portfolio:', error);
+      console.error('Error initializing portfolio:', error);
     }
   }
 
@@ -58,7 +55,6 @@ class Portfolio {
     // Initialize Three.js scene
     try {
       this.threeScene = initThreeScene();
-      console.log('✓ Three.js scene loaded');
     } catch (error) {
       console.error('Error initializing Three.js:', error);
     }
@@ -66,7 +62,6 @@ class Portfolio {
     // Initialize GitHub integration
     try {
       this.github = initGitHub();
-      console.log('✓ GitHub module loaded');
     } catch (error) {
       console.error('Error initializing GitHub:', error);
     }
@@ -89,11 +84,17 @@ class Portfolio {
     // Populate About section
     this.populateAboutSection();
 
+    // Populate Experience section
+    this.populateExperienceSection();
+
     // Populate Socials section
     this.populateSocialsSection();
 
     // Populate Music section
     this.populateMusicSection();
+
+    // Initialize music carousel drag
+    this.initMusicCarousel();
 
     // Populate Contact section
     this.populateContactSection();
@@ -150,7 +151,9 @@ class Portfolio {
 
           // Auto play when video loads
           video.addEventListener('loadeddata', () => {
-            video.play().catch(e => console.log('Video autoplay blocked:', e));
+            video.play().catch(e => {
+              // Video autoplay blocked - silent fail
+            });
           });
 
           mediaItem.appendChild(video);
@@ -266,6 +269,54 @@ class Portfolio {
     }
   }
 
+  populateExperienceSection() {
+    const timeline = document.querySelector('.experience-timeline');
+
+    if (timeline && CONFIG.experience) {
+      timeline.innerHTML = '';
+
+      CONFIG.experience.forEach((exp, index) => {
+        const card = document.createElement('div');
+        card.className = 'experience-card';
+        card.style.animationDelay = `${index * 0.15}s`;
+
+        // Build description list
+        const descriptionList = exp.description
+          .map(item => `<li>${item}</li>`)
+          .join('');
+
+        // Build technologies if available
+        const techStack = exp.technologies
+          ? `<div class="experience-technologies">
+              ${exp.technologies.map(tech => `<span class="tech-tag">${tech}</span>`).join('')}
+             </div>`
+          : '';
+
+        card.innerHTML = `
+          <div class="experience-timeline-marker"></div>
+          <div class="experience-card-content">
+            <div class="experience-card-header">
+              <div class="experience-card-title-group">
+                <h3 class="experience-role">${exp.role}</h3>
+                <p class="experience-company">${exp.company}</p>
+              </div>
+              <div class="experience-meta">
+                <span class="experience-duration">${exp.duration}</span>
+                <span class="experience-location">${exp.location}</span>
+              </div>
+            </div>
+            <ul class="experience-description">
+              ${descriptionList}
+            </ul>
+            ${techStack}
+          </div>
+        `;
+
+        timeline.appendChild(card);
+      });
+    }
+  }
+
   populateSocialsSection() {
     const socialsGrid = document.querySelector('.socials-grid');
 
@@ -321,7 +372,7 @@ class Portfolio {
               <i class="fas fa-play"></i>
             </button>
             <div class="music-card-image">
-              <img src="${song.imageUrl}" alt="${song.album}" loading="lazy">
+              <img src="${song.imageUrl}" alt="${song.album}" loading="lazy" draggable="false">
               <div class="music-card-visualizer">
                 <div class="music-bar"></div>
                 <div class="music-bar"></div>
@@ -394,7 +445,6 @@ class Portfolio {
                 playBtn.querySelector('i').className = 'fas fa-pause';
                 visualizer.classList.add('active');
               } catch (error) {
-                console.error('Error playing audio:', error);
                 alert(`Audio file not found or cannot play.\n\nMake sure the file exists at: ${audioSource}\n\nOpening Spotify instead...`);
                 window.open(song.spotifyUrl, '_blank');
               }
@@ -416,6 +466,130 @@ class Portfolio {
         musicGrid.appendChild(card);
       });
     }
+  }
+
+  initMusicCarousel() {
+    const carousel = document.querySelector('.music-grid');
+    if (!carousel) return;
+
+    let isDragging = false;
+    let isHolding = false;
+    let holdTimeout = null;
+    let startX = 0;
+    let currentRotation = 0;
+    let rotationOffset = 0;
+    let idleTimeout = null;
+
+    // Start with auto-spin enabled
+    carousel.classList.add('auto-spin');
+
+    // Prevent image dragging
+    const images = carousel.querySelectorAll('img, video');
+    images.forEach(img => {
+      img.addEventListener('dragstart', (e) => e.preventDefault());
+      img.style.userSelect = 'none';
+      img.style.pointerEvents = 'none';
+    });
+
+    const stopAutoSpin = () => {
+      carousel.classList.remove('auto-spin');
+      clearTimeout(idleTimeout);
+    };
+
+    const startAutoSpin = () => {
+      carousel.classList.add('auto-spin');
+      // Reset rotation to current position for smooth transition
+      const computedStyle = window.getComputedStyle(carousel);
+      const transform = computedStyle.transform;
+      if (transform && transform !== 'none') {
+        const matrix = new DOMMatrix(transform);
+        const angle = Math.atan2(matrix.m13, matrix.m11) * (180 / Math.PI);
+        currentRotation = angle;
+      }
+    };
+
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        startAutoSpin();
+      }, 1500); // Resume after 1.5 seconds of no interaction
+    };
+
+    const handleStart = (e) => {
+      // Only start drag on carousel background, not on cards
+      if (e.target.closest('.music-card')) {
+        return;
+      }
+
+      startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+      isHolding = true;
+
+      // Capture current rotation from animation or transform
+      const computedStyle = window.getComputedStyle(carousel);
+      const transform = computedStyle.transform;
+      if (transform && transform !== 'none') {
+        const matrix = new DOMMatrix(transform);
+        const angle = Math.atan2(matrix.m13, matrix.m11) * (180 / Math.PI);
+        rotationOffset = angle;
+      }
+
+      // Wait 150ms before allowing drag (hold requirement)
+      holdTimeout = setTimeout(() => {
+        if (isHolding) {
+          isDragging = true;
+          carousel.classList.add('dragging');
+          stopAutoSpin();
+        }
+      }, 150);
+    };
+
+    const handleMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+
+      const currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+      const deltaX = currentX - startX;
+
+      // Convert horizontal drag distance to rotation angle
+      // Drag left = rotate left, drag right = rotate right
+      const rotationDelta = deltaX * 0.5;
+      currentRotation = rotationOffset + rotationDelta;
+
+      carousel.style.transform = `rotateY(${currentRotation}deg)`;
+    };
+
+    const handleEnd = () => {
+      clearTimeout(holdTimeout);
+      isHolding = false;
+
+      if (!isDragging) return;
+      isDragging = false;
+      carousel.classList.remove('dragging');
+
+      // Store the final rotation
+      rotationOffset = currentRotation;
+
+      // Start idle timer to resume auto-spin
+      resetIdleTimer();
+    };
+
+    // Mouse events
+    carousel.addEventListener('mousedown', handleStart);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+
+    // Touch events for mobile
+    carousel.addEventListener('touchstart', handleStart, { passive: false });
+    document.addEventListener('touchmove', handleMove, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    // Prevent card clicks from being blocked during drag
+    carousel.addEventListener('click', (e) => {
+      if (Math.abs(currentRotation - rotationOffset) > 5) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
   }
 
   populateContactSection() {
@@ -541,10 +715,5 @@ const app = new Portfolio();
 
 // Export for debugging purposes
 window.portfolio = app;
-
-// Console welcome message
-console.log('%c🎨 Digital Portfolio', 'color: #00ffff; font-size: 24px; font-weight: bold;');
-console.log('%cBuilt with Three.js, JavaScript & CSS', 'color: #ff00ff; font-size: 14px;');
-console.log('%cEdit js/config.js to customize your portfolio!', 'color: #8892b0; font-size: 12px;');
 
 export default Portfolio;

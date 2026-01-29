@@ -68,6 +68,49 @@ const CONFIG = {
     ]
   },
 
+  // Work Experience
+  experience: [
+    {
+      company: "Apple",
+      role: "RDO - Jr. Python Developer",
+      duration: "October 2025 - Present",
+      location: "Elk Grove, CA",
+      description: [
+        "Develop and maintain lightweight Python apps (Plotly, Streamlit, Pandas) that automate manual workflows and improve operational efficiency by eliminating hours of repetitive tasks",
+        "Author comprehensive technical documentation catering to diverse audience expertise levels, ensuring knowledge transfer and long-term code sustainability",
+        "Collaborate with cross-functional stakeholders to identify pain points, gather requirements, and translate business needs into technical solutions",
+        "Created pipeline to connect to an SFTP server, extract geospatial datasets, and process them into Snowflake tables to be used for strategic retail location planning. This converted a three hour manual process to a fully-automated pipeline. "
+      ],
+      technologies: ["Python", "Go", "Jenkins","Snowflake", "SQL"]
+    },
+
+    {
+      company: "Apple",
+      role: "Location Frameworks Test Engineer",
+      duration: "June 2024 - November 2024",
+      location: "Cupertino, CA",
+      description: [
+        "Obtained and tested unreleased iOS, macOS, tvOS, watchOS, & visionOS roots. Utilizing internal software and documentation, produced and performed manual and automated tests, resulting in on time continuous integration.",
+        "Utilized internal bug tracking software to report issues which were screened and resolved by appropriate development teams, minimizing bugs in our upcoming software before being released to the public."
+      ],
+      technologies: ["Swift","Python","QA/QE","XCode", "Technical Documentation"]
+    },
+
+    {
+      company: "Apple",
+      role: "L2 AppleCare Support Advisor",
+      duration: "May 2021 - October 2025",
+      location: "Elk Grove, CA",
+      description: [
+        "Recipient of 2025 AppleCare Excellence Award due to exemplary performance in role.",
+        "Responsible for supportive communication, using creative thinking and process follow through to assist customers on technical issues supporting iOS and macOS software and our hardware, resulting in consistent resolution of cases with high customer satisfaction.",
+        " As a lead in the Gonzalez Care Team as my category two role, I ideated and produced team building activities by thinking creatively and use online tools that resulted in higher morale."
+      ],
+      technologies: ["Case Logging","Technical Support","Customer Service","Collaboration", "Communication"]
+    },
+    // Add more positions as needed - copy the structure above
+  ],
+
   // Socials Content
   socialsContent: [
     {
