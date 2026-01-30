@@ -49,9 +49,9 @@ const CONFIG = {
       },
       {
         type: "image",
-        src: "media/elevator.jpg",
-        alt: "Fashion Icon",
-        description: "Fashion is an art that I admire. Pushing the boundaries of one's traditions is an homage to how brilliant the mind truly is."
+        src: "media/jetski.jpg",
+        alt: "Travel Lover",
+        description: "When I get a break from my schedule, I'll often travel to other countries and explore other cultures."
       },
       {
         type: "video",
